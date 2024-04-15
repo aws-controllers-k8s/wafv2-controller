@@ -1,0 +1,8 @@
+service:
+  full_name: AWS Web Application Firewall
+  short_name: WAF
+  link: https://aws.amazon.com/waf/
+  documentation: https://docs.aws.amazon.com/waf/
+api_versions:
+  - api_version: v1alpha1
+    status: available
