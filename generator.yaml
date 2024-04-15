@@ -1,0 +1,8 @@
+ignore:
+  resource_names:
+      - APIKey
+      - IPSet
+      - RegexPatternSet
+      - RuleGroup
+      - WebACL
+model_name: wafv2
