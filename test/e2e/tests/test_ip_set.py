@@ -80,9 +80,8 @@ class TestIPSet:
         ip_set_name = cr["spec"]["name"]
 
         assert "status" in cr
-        assert "ackResourceMetadata" in cr["status"]
-        assert "arn" in cr["status"]["ackResourceMetadata"]
-        ip_set_id = cr["status"]["ackResourceMetadata"]["id"]
+        assert "id" in cr["status"]
+        ip_set_id = cr["status"]["id"]
 
         latest = ip_set.get(ip_set_name, ip_set_id)
         assert latest is not None
@@ -95,8 +94,10 @@ class TestIPSet:
 
         # update the CR
         updates = {
-            "spec": {"addresses": [addresses[0], addresses[1], "192.0.0.0/16"]},
-            "spec": {"description": "updated description"},
+            "spec": {
+                "addresses": [addresses[0], addresses[1], "192.0.0.0/16"],
+                "description": "updated description",
+            },
         }
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_SECONDS)
@@ -111,5 +112,6 @@ class TestIPSet:
         assert description == "updated description"
 
         # delete the CR
-        simple_ip_set
-        ip_set.wait_until_deleted(ip_set_name)
+        _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
+        assert deleted
+        ip_set.wait_until_deleted(ip_set_name, ip_set_id)

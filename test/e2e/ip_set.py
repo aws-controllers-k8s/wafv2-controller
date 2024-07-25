@@ -56,5 +56,5 @@ def get(
     try:
         resp = c.get_ip_set(Name=name, Id=id, Scope=scope)
         return resp["IPSet"]
-    except c.exceptions.BadRequestException:
+    except c.exceptions.WAFNonexistentItemException:
         return None
