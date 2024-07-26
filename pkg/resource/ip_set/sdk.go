@@ -90,20 +90,48 @@ func (rm *resourceManager) sdkFind(
 	// the original Kubernetes object we passed to the function
 	ko := r.ko.DeepCopy()
 
-	if resp.LockToken != nil {
-		ko.Status.LockToken = resp.LockToken
+	if ko.Status.ACKResourceMetadata == nil {
+		ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+	}
+	if resp.IPSet.ARN != nil {
+		arn := ackv1alpha1.AWSResourceName(*resp.IPSet.ARN)
+		ko.Status.ACKResourceMetadata.ARN = &arn
+	}
+	if resp.IPSet.Addresses != nil {
+		f1 := []*string{}
+		for _, f1iter := range resp.IPSet.Addresses {
+			var f1elem string
+			f1elem = *f1iter
+			f1 = append(f1, &f1elem)
+		}
+		ko.Spec.Addresses = f1
 	} else {
-		ko.Status.LockToken = nil
+		ko.Spec.Addresses = nil
+	}
+	if resp.IPSet.Description != nil {
+		ko.Spec.Description = resp.IPSet.Description
+	} else {
+		ko.Spec.Description = nil
+	}
+	if resp.IPSet.IPAddressVersion != nil {
+		ko.Spec.IPAddressVersion = resp.IPSet.IPAddressVersion
+	} else {
+		ko.Spec.IPAddressVersion = nil
+	}
+	if resp.IPSet.Id != nil {
+		ko.Status.ID = resp.IPSet.Id
+	} else {
+		ko.Status.ID = nil
+	}
+	if resp.IPSet.Name != nil {
+		ko.Spec.Name = resp.IPSet.Name
+	} else {
+		ko.Spec.Name = nil
 	}
 
 	rm.setStatusDefaults(ko)
-	if resp.IPSet != nil {
-		if resp.IPSet.Description != nil {
-			ko.Spec.Description = resp.IPSet.Description
-		}
-		if resp.IPSet.Addresses != nil {
-			ko.Spec.Addresses = resp.IPSet.Addresses
-		}
+	if resp.LockToken != nil {
+		ko.Status.LockToken = resp.LockToken
 	}
 	return &resource{ko}, nil
 }

@@ -6,6 +6,9 @@ ignore:
   - RuleGroup
   - WebACL
 model_name: wafv2
+operations:
+  GetIPSet:
+    output_wrapper_field_path: IPSet
 resources:
   IPSet:
     fields:
