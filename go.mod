@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.5
 
 require (
-	github.com/aws-controllers-k8s/runtime v0.35.0
+	github.com/aws-controllers-k8s/runtime v0.36.0
 	github.com/aws/aws-sdk-go v1.51.21
 	github.com/spf13/pflag v1.0.5
 	k8s.io/apimachinery v0.30.1
