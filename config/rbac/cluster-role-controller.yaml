@@ -70,3 +70,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - wafv2.services.k8s.aws
+  resources:
+  - ipsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - wafv2.services.k8s.aws
+  resources:
+  - ipsets/status
+  verbs:
+  - get
+  - patch
+  - update
