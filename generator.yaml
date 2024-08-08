@@ -46,6 +46,8 @@ resources:
       Name:
         is_primary_key: true
         is_immutable: true
+      Capacity:
+        is_immutable: true
     hooks:
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
