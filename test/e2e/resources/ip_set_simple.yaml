@@ -6,5 +6,5 @@ spec:
   name: $IP_SET_NAME
   addresses: ["192.0.2.44/32", "192.0.2.0/24"]
   description: "initial description"
-  iPAddressVersion: IPV4
+  ipAddressVersion: IPV4
   scope: REGIONAL
