@@ -157,6 +157,26 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - wafv2.services.k8s.aws
+  resources:
+  - webacls
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - wafv2.services.k8s.aws
+  resources:
+  - webacls/status
+  verbs:
+  - get
+  - patch
+  - update
 {{- end }}
 
 {{/* Convert k/v map to string like: "key1=value1,key2=value2,..." */}}

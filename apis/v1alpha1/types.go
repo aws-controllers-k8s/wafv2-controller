@@ -28,6 +28,17 @@ var (
 	_ = ackv1alpha1.AWSAccountID("")
 )
 
+// Information for a single API key.
+//
+// API keys are required for the integration of the CAPTCHA API in your JavaScript
+// client applications. The API lets you customize the placement and characteristics
+// of the CAPTCHA puzzle for your end users. For more information about the
+// CAPTCHA JavaScript integration, see WAF client application integration (https://docs.aws.amazon.com/waf/latest/developerguide/waf-application-integration.html)
+// in the WAF Developer Guide.
+type APIKeySummary struct {
+	TokenDomains []*string `json:"tokenDomains,omitempty"`
+}
+
 // Details for your use of the account creation fraud prevention managed rule
 // group, AWSManagedRulesACFPRuleSet. This configuration is used in ManagedRuleGroupConfig.
 type AWSManagedRulesACFPRuleSet struct {
@@ -134,6 +145,24 @@ type AllowAction struct {
 	// web requests and responses in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html)
 	// in the WAF Developer Guide.
 	CustomRequestHandling *CustomRequestHandling `json:"customRequestHandling,omitempty"`
+}
+
+// Specifies custom configurations for the associations between the web ACL
+// and protected resources.
+//
+// Use this to customize the maximum size of the request body that your protected
+// resources forward to WAF for inspection. You can customize this setting for
+// CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources.
+// The default setting is 16 KB (16,384 bytes).
+//
+// You are charged additional fees when your protected resources forward body
+// sizes that are larger than the default. For more information, see WAF Pricing
+// (http://aws.amazon.com/waf/pricing/).
+//
+// For Application Load Balancer and AppSync, the limit is fixed at 8 KB (8,192
+// bytes).
+type AssociationConfig struct {
+	RequestBody map[string]*RequestBodyAssociatedResourceTypeConfig `json:"requestBody,omitempty"`
 }
 
 // Specifies that WAF should block the request and optionally defines additional
@@ -557,7 +586,10 @@ type FieldToMatch struct {
 
 // A rule group that's defined for an Firewall Manager WAF policy.
 type FirewallManagerRuleGroup struct {
-	Name *string `json:"name,omitempty"`
+	// The processing guidance for an Firewall Manager rule. This is like a regular
+	// rule Statement, but it can only contain a single rule group reference.
+	FirewallManagerStatement *FirewallManagerStatement `json:"firewallManagerStatement,omitempty"`
+	Name                     *string                   `json:"name,omitempty"`
 	// The action to use in the place of the action that results from the rule group
 	// evaluation. Set the override action to none to leave the result of the rule
 	// group alone. Set it to count to override the result to count only.
@@ -1511,6 +1543,25 @@ type ReleaseSummary struct {
 	ReleaseVersion *string `json:"releaseVersion,omitempty"`
 }
 
+// Customizes the maximum size of the request body that your protected CloudFront,
+// API Gateway, Amazon Cognito, App Runner, and Verified Access resources forward
+// to WAF for inspection. The default size is 16 KB (16,384 bytes). You can
+// change the setting for any of the available resource types.
+//
+// You are charged additional fees when your protected resources forward body
+// sizes that are larger than the default. For more information, see WAF Pricing
+// (http://aws.amazon.com/waf/pricing/).
+//
+// Example JSON: { "API_GATEWAY": "KB_48", "APP_RUNNER_SERVICE": "KB_32" }
+//
+// For Application Load Balancer and AppSync, the limit is fixed at 8 KB (8,192
+// bytes).
+//
+// This is used in the AssociationConfig of the web ACL.
+type RequestBodyAssociatedResourceTypeConfig struct {
+	DefaultSizeInspectionLimit *string `json:"defaultSizeInspectionLimit,omitempty"`
+}
+
 // The criteria for inspecting login requests, used by the ATP rule group to
 // validate credentials usage.
 //
@@ -2238,6 +2289,17 @@ type VisibilityConfig struct {
 	SampledRequestsEnabled   *bool   `json:"sampledRequestsEnabled,omitempty"`
 }
 
+// High-level information about a WebACL, returned by operations like create
+// and list. This provides information like the ID, that you can use to retrieve
+// and manage a WebACL, and the ARN, that you provide to operations like AssociateWebACL.
+type WebACLSummary struct {
+	ARN         *string `json:"arn,omitempty"`
+	Description *string `json:"description,omitempty"`
+	ID          *string `json:"id,omitempty"`
+	LockToken   *string `json:"lockToken,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
 // A web ACL defines a collection of rules to use to inspect and control web
 // requests. Each rule has a statement that defines what to look for in web
 // requests and an action that WAF applies to requests that match the statement.
@@ -2249,34 +2311,46 @@ type VisibilityConfig struct {
 // API Gateway REST API, an Application Load Balancer, an AppSync GraphQL API,
 // an Amazon Cognito user pool, an App Runner service, or an Amazon Web Services
 // Verified Access instance.
-type WebACL struct {
+type WebACL_SDK struct {
 	ARN *string `json:"arn,omitempty"`
+	// Specifies custom configurations for the associations between the web ACL
+	// and protected resources.
+	//
+	// Use this to customize the maximum size of the request body that your protected
+	// resources forward to WAF for inspection. You can customize this setting for
+	// CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources.
+	// The default setting is 16 KB (16,384 bytes).
+	//
+	// You are charged additional fees when your protected resources forward body
+	// sizes that are larger than the default. For more information, see WAF Pricing
+	// (http://aws.amazon.com/waf/pricing/).
+	//
+	// For Application Load Balancer and AppSync, the limit is fixed at 8 KB (8,192
+	// bytes).
+	AssociationConfig *AssociationConfig `json:"associationConfig,omitempty"`
+	Capacity          *int64             `json:"capacity,omitempty"`
 	// Specifies how WAF should handle CAPTCHA evaluations. This is available at
 	// the web ACL level and in each rule.
 	CaptchaConfig *CaptchaConfig `json:"captchaConfig,omitempty"`
 	// Specifies how WAF should handle Challenge evaluations. This is available
 	// at the web ACL level and in each rule.
-	ChallengeConfig          *ChallengeConfig               `json:"challengeConfig,omitempty"`
-	CustomResponseBodies     map[string]*CustomResponseBody `json:"customResponseBodies,omitempty"`
-	Description              *string                        `json:"description,omitempty"`
-	ID                       *string                        `json:"id,omitempty"`
-	LabelNamespace           *string                        `json:"labelNamespace,omitempty"`
-	ManagedByFirewallManager *bool                          `json:"managedByFirewallManager,omitempty"`
-	Name                     *string                        `json:"name,omitempty"`
-	Rules                    []*Rule                        `json:"rules,omitempty"`
+	ChallengeConfig      *ChallengeConfig               `json:"challengeConfig,omitempty"`
+	CustomResponseBodies map[string]*CustomResponseBody `json:"customResponseBodies,omitempty"`
+	// In a WebACL, this is the action that you want WAF to perform when a web request
+	// doesn't match any of the rules in the WebACL. The default action must be
+	// a terminating action.
+	DefaultAction                        *DefaultAction              `json:"defaultAction,omitempty"`
+	Description                          *string                     `json:"description,omitempty"`
+	ID                                   *string                     `json:"id,omitempty"`
+	LabelNamespace                       *string                     `json:"labelNamespace,omitempty"`
+	ManagedByFirewallManager             *bool                       `json:"managedByFirewallManager,omitempty"`
+	Name                                 *string                     `json:"name,omitempty"`
+	PostProcessFirewallManagerRuleGroups []*FirewallManagerRuleGroup `json:"postProcessFirewallManagerRuleGroups,omitempty"`
+	PreProcessFirewallManagerRuleGroups  []*FirewallManagerRuleGroup `json:"preProcessFirewallManagerRuleGroups,omitempty"`
+	Rules                                []*Rule                     `json:"rules,omitempty"`
+	TokenDomains                         []*string                   `json:"tokenDomains,omitempty"`
 	// Defines and enables Amazon CloudWatch metrics and web request sample collection.
 	VisibilityConfig *VisibilityConfig `json:"visibilityConfig,omitempty"`
-}
-
-// High-level information about a WebACL, returned by operations like create
-// and list. This provides information like the ID, that you can use to retrieve
-// and manage a WebACL, and the ARN, that you provide to operations like AssociateWebACL.
-type WebACLSummary struct {
-	ARN         *string `json:"arn,omitempty"`
-	Description *string `json:"description,omitempty"`
-	ID          *string `json:"id,omitempty"`
-	LockToken   *string `json:"lockToken,omitempty"`
-	Name        *string `json:"name,omitempty"`
 }
 
 // A rule statement that inspects for cross-site scripting (XSS) attacks. In
