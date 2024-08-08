@@ -15,8 +15,6 @@
 
 import time
 import pytest
-import json
-import base64
 
 from acktest.k8s import condition
 from acktest.k8s import resource as k8s
@@ -65,11 +63,6 @@ def simple_rule_group():
     except:
         pass
 
-class CustomEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, bytes):
-            return base64.b64encode(obj).decode('utf-8')
-        return super(CustomEncoder, self).default(obj)
 
 @service_marker
 @pytest.mark.canary
@@ -98,8 +91,7 @@ class TestRuleGroup:
         description = latest["Description"]
         assert len(rules) == 2
         assert description == "initial description"
-        
-        
+
         # update the CR
         updates = {
             "spec": {
@@ -125,37 +117,27 @@ class TestRuleGroup:
         assert deleted
         rule_group.wait_until_deleted(rule_group_name, rule_group_id)
 
+
 ADDITIONAL_RULE = {
     "name": "rule-3",
     "priority": 2,
-    "action": {
-        "block": {}
-    },
+    "action": {"block": {}},
     "visibilityConfig": {
         "metricName": "rule-3-metric",
         "sampledRequestsEnabled": True,
-        "cloudWatchMetricsEnabled": True
+        "cloudWatchMetricsEnabled": True,
     },
     "statement": {
-    "regexMatchStatement": {
-        "regexString": "regex",
-        "fieldToMatch": {
-        "headers": {
-            "matchPattern": {
-            "includedHeaders": [
-                "User-Agent"
-            ]
+        "regexMatchStatement": {
+            "regexString": "regex",
+            "fieldToMatch": {
+                "headers": {
+                    "matchPattern": {"includedHeaders": ["User-Agent"]},
+                    "matchScope": "KEY",
+                    "oversizeHandling": "MATCH",
+                }
             },
-            "matchScope": "KEY",
-            "oversizeHandling": "MATCH"
+            "textTransformations": [{"type_": "NONE", "priority": 0}],
         }
-        },
-        "textTransformations": [
-        {
-            "type_": "NONE",
-            "priority": 0
-        }
-        ]
-    }
-    }
+    },
 }
