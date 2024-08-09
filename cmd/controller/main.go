@@ -39,6 +39,8 @@ import (
 	svcresource "github.com/aws-controllers-k8s/wafv2-controller/pkg/resource"
 	svcsdk "github.com/aws/aws-sdk-go/service/wafv2"
 
+	_ "github.com/aws-controllers-k8s/wafv2-controller/pkg/resource/ip_set"
+
 	"github.com/aws-controllers-k8s/wafv2-controller/pkg/version"
 )
 

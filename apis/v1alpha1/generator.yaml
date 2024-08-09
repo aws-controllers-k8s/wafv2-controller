@@ -1,8 +1,25 @@
 ignore:
   resource_names:
-      - APIKey
-      - IPSet
-      - RegexPatternSet
-      - RuleGroup
-      - WebACL
+  - APIKey
+  # - IPSet
+  - RegexPatternSet
+  - RuleGroup
+  - WebACL
 model_name: wafv2
+operations:
+  GetIPSet:
+    output_wrapper_field_path: IPSet
+resources:
+  IPSet:
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+      Tags:
+        compare:
+          is_ignored: true
+    tags:
+      ignore: true
+    hooks:
+      sdk_read_one_post_set_output:
+        template_path: hooks/ipset/sdk_read_one_post_set_output.go.tpl

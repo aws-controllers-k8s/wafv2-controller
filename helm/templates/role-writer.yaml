@@ -9,6 +9,7 @@ rules:
 - apiGroups:
   - wafv2.services.k8s.aws
   resources:
+  - ipsets
   verbs:
   - create
   - delete
@@ -20,6 +21,7 @@ rules:
 - apiGroups:
   - wafv2.services.k8s.aws
   resources:
+  - ipsets
   verbs:
   - get
   - patch
