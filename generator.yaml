@@ -4,13 +4,18 @@ ignore:
     # - IPSet
     - RegexPatternSet
     # - RuleGroup
-    - WebACL
+    # - WebACL
   field_paths:
     - RuleGroup.Rules.Statement.AndStatement
     - RuleGroup.Rules.Statement.OrStatement
     - RuleGroup.Rules.Statement.NotStatement
     - RuleGroup.Rules.Statement.ManagedRuleGroupStatement.ScopeDownStatement
     - RuleGroup.Rules.Statement.RateBasedStatement.ScopeDownStatement
+    - WebACL.Rules.Statement.AndStatement
+    - WebACL.Rules.Statement.OrStatement
+    - WebACL.Rules.Statement.NotStatement
+    - WebACL.Rules.Statement.ManagedRuleGroupStatement.ScopeDownStatement
+    - WebACL.Rules.Statement.RateBasedStatement.ScopeDownStatement
 model_name: wafv2
 empty_shapes:
   - All
@@ -27,6 +32,8 @@ operations:
     output_wrapper_field_path: IPSet
   GetRuleGroup:
     output_wrapper_field_path: RuleGroup
+  GetWebACL:
+    output_wrapper_field_path: WebACL
 resources:
   IPSet:
     fields:
@@ -53,3 +60,13 @@ resources:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
         template_path: hooks/rulegroup/sdk_read_one_post_set_output.go.tpl
+  WebACL:
+    fields:
+      Name:
+        is_primary_key: true
+        is_immutable: true
+    hooks:
+      sdk_read_one_pre_build_request:
+        template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
+      sdk_read_one_post_set_output:
+        template_path: hooks/webacl/sdk_read_one_post_set_output.go.tpl
