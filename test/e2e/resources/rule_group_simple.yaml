@@ -26,23 +26,6 @@ spec:
             singleHeader:
               name: "User-Agent"
           positionalConstraint: STARTS_WITH
-          searchString: c29tZXRoaW5n
           textTransformations:
-           - type_: NONE
-             priority: 0
-    - name: rule-2
-      priority: 2
-      action:
-        block: {}
-      visibilityConfig:
-        metricName: rule-2-metric
-        sampledRequestsEnabled: false
-        cloudWatchMetricsEnabled: false
-      statement:
-        geoMatchStatement:
-          countryCodes:
-            - US
-            - CA
-          forwardedIPConfig:
-            headerName: "X-Forwarded-For"
-            fallbackBehavior: MATCH
+            - type_: NONE
+              priority: 0
