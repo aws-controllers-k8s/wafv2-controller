@@ -48,6 +48,8 @@ resources:
         is_immutable: true
       Capacity:
         is_immutable: true
+      Rules.Statement.ByteMatchStatement.TextTransformations.Type:
+        go_tag: json:"type,omitempty"
     hooks:
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl

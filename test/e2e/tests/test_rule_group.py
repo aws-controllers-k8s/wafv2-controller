@@ -137,7 +137,7 @@ ADDITIONAL_RULE = {
                     "oversizeHandling": "MATCH",
                 }
             },
-            "textTransformations": [{"type_": "NONE", "priority": 0}],
+            "textTransformations": [{"type": "NONE", "priority": 0}],
         }
     },
 }

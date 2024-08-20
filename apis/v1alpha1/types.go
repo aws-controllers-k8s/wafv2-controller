@@ -2205,7 +2205,7 @@ type TagInfoForResource struct {
 // use in web requests in an effort to bypass detection.
 type TextTransformation struct {
 	Priority *int64  `json:"priority,omitempty"`
-	Type     *string `json:"type_,omitempty"`
+	Type     *string `json:"type,omitempty"`
 }
 
 // The name of the field in the request payload that contains your customer's

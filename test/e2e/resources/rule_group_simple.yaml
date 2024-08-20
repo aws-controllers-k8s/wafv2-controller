@@ -28,8 +28,8 @@ spec:
           positionalConstraint: STARTS_WITH
           searchString: c29tZXRoaW5n
           textTransformations:
-           - type_: NONE
-             priority: 0
+            - type: NONE
+              priority: 0
     - name: rule-2
       priority: 2
       action:

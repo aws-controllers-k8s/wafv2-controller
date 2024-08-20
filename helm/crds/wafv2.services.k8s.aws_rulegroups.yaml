@@ -814,7 +814,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
@@ -1789,7 +1789,7 @@ spec:
                                             priority:
                                               format: int64
                                               type: integer
-                                            type_:
+                                            type:
                                               type: string
                                           type: object
                                         type: array
@@ -1840,7 +1840,7 @@ spec:
                                             priority:
                                               format: int64
                                               type: integer
-                                            type_:
+                                            type:
                                               type: string
                                           type: object
                                         type: array
@@ -1911,7 +1911,7 @@ spec:
                                             priority:
                                               format: int64
                                               type: integer
-                                            type_:
+                                            type:
                                               type: string
                                           type: object
                                         type: array
@@ -1932,7 +1932,7 @@ spec:
                                             priority:
                                               format: int64
                                               type: integer
-                                            type_:
+                                            type:
                                               type: string
                                           type: object
                                         type: array
@@ -1953,7 +1953,7 @@ spec:
                                             priority:
                                               format: int64
                                               type: integer
-                                            type_:
+                                            type:
                                               type: string
                                           type: object
                                         type: array
@@ -2329,7 +2329,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
@@ -2683,7 +2683,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
@@ -3324,7 +3324,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
@@ -3669,7 +3669,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
@@ -4012,7 +4012,7 @@ spec:
                                   priority:
                                     format: int64
                                     type: integer
-                                  type_:
+                                  type:
                                     type: string
                                 type: object
                               type: array
