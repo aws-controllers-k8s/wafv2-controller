@@ -497,7 +497,7 @@ type FieldToMatch struct {
 	//
 	// Provide the JA3 fingerprint string from the logs in your string match statement
 	// specification, to match with any future requests that have the same TLS configuration.
-	JA3Fingerprint *JA3Fingerprint `json:"jA3Fingerprint,omitempty"`
+	JA3Fingerprint *JA3Fingerprint `json:"ja3Fingerprint,omitempty"`
 	// Inspect the body of the web request as JSON. The body immediately follows
 	// the request headers.
 	//
@@ -1850,7 +1850,7 @@ type RuleSummary struct {
 // A rule statement that inspects for malicious SQL code. Attackers insert malicious
 // SQL code into web requests to do things like modify your database or extract
 // data from it.
-type SQLiMatchStatement struct {
+type SQLIMatchStatement struct {
 	// Specifies a web request component to be used in a rule match statement or
 	// in a logging configuration.
 	//
@@ -2160,11 +2160,11 @@ type Statement struct {
 	// A rule statement that inspects for malicious SQL code. Attackers insert malicious
 	// SQL code into web requests to do things like modify your database or extract
 	// data from it.
-	SQLiMatchStatement *SQLiMatchStatement `json:"sqliMatchStatement,omitempty"`
+	SQLIMatchStatement *SQLIMatchStatement `json:"sqliMatchStatement,omitempty"`
 	// A rule statement that inspects for cross-site scripting (XSS) attacks. In
 	// XSS attacks, the attacker uses vulnerabilities in a benign website as a vehicle
 	// to inject malicious client-site scripts into other legitimate web browsers.
-	XssMatchStatement *XssMatchStatement `json:"xssMatchStatement,omitempty"`
+	XSSMatchStatement *XSSMatchStatement `json:"xssMatchStatement,omitempty"`
 }
 
 // A tag associated with an Amazon Web Services resource. Tags are key:value
@@ -2282,7 +2282,7 @@ type WebACLSummary struct {
 // A rule statement that inspects for cross-site scripting (XSS) attacks. In
 // XSS attacks, the attacker uses vulnerabilities in a benign website as a vehicle
 // to inject malicious client-site scripts into other legitimate web browsers.
-type XssMatchStatement struct {
+type XSSMatchStatement struct {
 	// Specifies a web request component to be used in a rule match statement or
 	// in a logging configuration.
 	//
