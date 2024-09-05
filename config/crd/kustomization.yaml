@@ -4,3 +4,4 @@ resources:
   - common
   - bases/wafv2.services.k8s.aws_ipsets.yaml
   - bases/wafv2.services.k8s.aws_rulegroups.yaml
+  - bases/wafv2.services.k8s.aws_webacls.yaml
