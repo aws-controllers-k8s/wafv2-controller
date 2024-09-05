@@ -1,0 +1,49 @@
+apiVersion: wafv2.services.k8s.aws/v1alpha1
+kind: WebACL
+metadata:
+  name: $WEB_ACL_NAME
+spec:
+  name: $WEB_ACL_NAME
+  description: "initial description"
+  scope: "REGIONAL"
+  defaultAction:
+    allow: {}
+  visibilityConfig:
+    metricName: my-metric
+    sampledRequestsEnabled: false
+    cloudWatchMetricsEnabled: false
+  rules:
+    - name: rule-1
+      priority: 1
+      action:
+        allow: {}
+      visibilityConfig:
+        metricName: rule-1-metric
+        sampledRequestsEnabled: true
+        cloudWatchMetricsEnabled: true
+      statement:
+        byteMatchStatement:
+          fieldToMatch:
+            singleHeader:
+              name: "User-Agent"
+          positionalConstraint: STARTS_WITH
+          searchString: c29tZXRoaW5n
+          textTransformations:
+            - type: NONE
+              priority: 0
+    - name: rule-2
+      priority: 2
+      action:
+        block: {}
+      visibilityConfig:
+        metricName: rule-2-metric
+        sampledRequestsEnabled: false
+        cloudWatchMetricsEnabled: false
+      statement:
+        geoMatchStatement:
+          countryCodes:
+            - US
+            - CA
+          forwardedIPConfig:
+            headerName: "X-Forwarded-For"
+            fallbackBehavior: MATCH
