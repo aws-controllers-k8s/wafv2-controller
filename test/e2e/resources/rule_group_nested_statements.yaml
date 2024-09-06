@@ -1,0 +1,43 @@
+apiVersion: wafv2.services.k8s.aws/v1alpha1
+kind: RuleGroup
+metadata:
+  name: $RULE_GROUP_NAME
+spec:
+  name: $RULE_GROUP_NAME
+  capacity: 10
+  description: "initial description"
+  scope: "REGIONAL"
+  visibilityConfig:
+    metricName: my-metric
+    sampledRequestsEnabled: false
+    cloudWatchMetricsEnabled: false
+  rules:
+    - name: rule-1
+      priority: 1
+      action:
+        block: {}
+      visibilityConfig:
+        metricName: rule-1-metric
+        sampledRequestsEnabled: false
+        cloudWatchMetricsEnabled: false
+      statement:
+        andStatement: |
+          statements:
+            - geoMatchStatement:
+                countryCodes:
+                  - US
+                  - CA
+                forwardedIPConfig:
+                  headerName: "X-Forwarded-For"
+                  fallbackBehavior: MATCH
+            - notStatement:
+                statement:
+                  byteMatchStatement:
+                    fieldToMatch:
+                      singleHeader:
+                        name: "Referer"
+                    positionalConstraint: EXACTLY
+                    searchString: c29tZXRoaW5n
+                    textTransformations:
+                      - type: NONE
+                        priority: 0

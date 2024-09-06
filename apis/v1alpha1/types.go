@@ -1039,6 +1039,7 @@ type ManagedRuleGroupStatement struct {
 	ManagedRuleGroupConfigs []*ManagedRuleGroupConfig `json:"managedRuleGroupConfigs,omitempty"`
 	Name                    *string                   `json:"name,omitempty"`
 	RuleActionOverrides     []*RuleActionOverride     `json:"ruleActionOverrides,omitempty"`
+	ScopeDownStatement      *string                   `json:"scopeDownStatement,omitempty"`
 	VendorName              *string                   `json:"vendorName,omitempty"`
 	Version                 *string                   `json:"version,omitempty"`
 }
@@ -1280,8 +1281,9 @@ type RateBasedStatement struct {
 	// For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
 	//
 	// WAF only evaluates the first IP address found in the specified HTTP header.
-	ForwardedIPConfig *ForwardedIPConfig `json:"forwardedIPConfig,omitempty"`
-	Limit             *int64             `json:"limit,omitempty"`
+	ForwardedIPConfig  *ForwardedIPConfig `json:"forwardedIPConfig,omitempty"`
+	Limit              *int64             `json:"limit,omitempty"`
+	ScopeDownStatement *string            `json:"scopeDownStatement,omitempty"`
 }
 
 // Specifies a single custom aggregate key for a rate-base rule.
@@ -2011,6 +2013,7 @@ type SizeConstraintStatement struct {
 //
 // For example specifications, see the examples section of CreateWebACL.
 type Statement struct {
+	AndStatement *string `json:"andStatement,omitempty"`
 	// A rule statement that defines a string match search for WAF to apply to web
 	// requests. The byte match statement provides the bytes to search for, the
 	// location in requests that you want WAF to search, and other settings. The
@@ -2084,6 +2087,8 @@ type Statement struct {
 	// the WAF Fraud Control account creation fraud prevention (ACFP) managed rule
 	// group AWSManagedRulesACFPRuleSet. For more information, see WAF Pricing (http://aws.amazon.com/waf/pricing/).
 	ManagedRuleGroupStatement *ManagedRuleGroupStatement `json:"managedRuleGroupStatement,omitempty"`
+	NotStatement              *string                    `json:"notStatement,omitempty"`
+	OrStatement               *string                    `json:"orStatement,omitempty"`
 	// A rate-based rule counts incoming requests and rate limits requests when
 	// they are coming at too fast a rate. The rule categorizes requests according
 	// to your aggregation criteria, collects them into aggregation instances, and

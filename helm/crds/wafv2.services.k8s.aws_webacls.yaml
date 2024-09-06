@@ -613,6 +613,8 @@ spec:
 
                         For example specifications, see the examples section of CreateWebACL.
                       properties:
+                        andStatement:
+                          type: string
                         byteMatchStatement:
                           description: |-
                             A rule statement that defines a string match search for WAF to apply to web
@@ -1797,11 +1799,17 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            scopeDownStatement:
+                              type: string
                             vendorName:
                               type: string
                             version:
                               type: string
                           type: object
+                        notStatement:
+                          type: string
+                        orStatement:
+                          type: string
                         rateBasedStatement:
                           description: |-
                             A rate-based rule counts incoming requests and rate limits requests when
@@ -2134,6 +2142,8 @@ spec:
                             limit:
                               format: int64
                               type: integer
+                            scopeDownStatement:
+                              type: string
                           type: object
                         regexMatchStatement:
                           description: |-
