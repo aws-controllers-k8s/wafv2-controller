@@ -86,6 +86,8 @@ resources:
         template_path: hooks/rulegroup/sdk_create_post_build_request.go.tpl
       sdk_update_post_build_request:
         template_path: hooks/rulegroup/sdk_update_post_build_request.go.tpl
+      sdk_file_end:
+        template_path: hooks/common/sdk_file_end.go.tpl
   WebACL:
     fields:
       Name:
@@ -120,3 +122,5 @@ resources:
         template_path: hooks/webacl/sdk_create_post_build_request.go.tpl
       sdk_update_post_build_request:
         template_path: hooks/webacl/sdk_update_post_build_request.go.tpl
+      sdk_file_end:
+        template_path: hooks/common/sdk_file_end.go.tpl

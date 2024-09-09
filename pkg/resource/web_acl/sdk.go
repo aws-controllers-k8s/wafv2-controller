@@ -2386,39 +2386,8 @@ func (rm *resourceManager) sdkFind(
 	if resp.LockToken != nil {
 		ko.Status.LockToken = resp.LockToken
 	}
-	for i, rule := range resp.WebACL.Rules {
-		if rule.Statement != nil {
-			if rule.Statement.AndStatement != nil {
-				ko.Spec.Rules[i].Statement.AndStatement, err = statementToString(rule.Statement.AndStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.OrStatement != nil {
-				ko.Spec.Rules[i].Statement.OrStatement, err = statementToString(rule.Statement.OrStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.NotStatement != nil {
-				ko.Spec.Rules[i].Statement.NotStatement, err = statementToString(rule.Statement.NotStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
-				ko.Spec.Rules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = statementToString(rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
-				ko.Spec.Rules[i].Statement.RateBasedStatement.ScopeDownStatement, err = statementToString(rule.Statement.RateBasedStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	if err := rm.setOutputRulesNestedStatements(ko.Spec.Rules, resp); err != nil {
+		return nil, err
 	}
 
 	return &resource{ko}, nil
@@ -2470,39 +2439,8 @@ func (rm *resourceManager) sdkCreate(
 	if err != nil {
 		return nil, err
 	}
-	for i, rule := range desired.ko.Spec.Rules {
-		if rule.Statement != nil {
-			if rule.Statement.AndStatement != nil {
-				input.Rules[i].Statement.AndStatement, err = stringToStatement[svcsdk.AndStatement](rule.Statement.AndStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.OrStatement != nil {
-				input.Rules[i].Statement.OrStatement, err = stringToStatement[svcsdk.OrStatement](rule.Statement.OrStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.NotStatement != nil {
-				input.Rules[i].Statement.NotStatement, err = stringToStatement[svcsdk.NotStatement](rule.Statement.NotStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
-				input.Rules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
-				input.Rules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	if err := rm.setInputRulesNestedStatements(input.Rules, desired); err != nil {
+		return nil, err
 	}
 
 	var resp *svcsdk.CreateWebACLOutput
@@ -4850,39 +4788,8 @@ func (rm *resourceManager) sdkUpdate(
 	if err != nil {
 		return nil, err
 	}
-	for i, rule := range desired.ko.Spec.Rules {
-		if rule.Statement != nil {
-			if rule.Statement.AndStatement != nil {
-				input.Rules[i].Statement.AndStatement, err = stringToStatement[svcsdk.AndStatement](rule.Statement.AndStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.OrStatement != nil {
-				input.Rules[i].Statement.OrStatement, err = stringToStatement[svcsdk.OrStatement](rule.Statement.OrStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.NotStatement != nil {
-				input.Rules[i].Statement.NotStatement, err = stringToStatement[svcsdk.NotStatement](rule.Statement.NotStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
-				input.Rules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
-				input.Rules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	if err := rm.setInputRulesNestedStatements(input.Rules, desired); err != nil {
+		return nil, err
 	}
 
 	var resp *svcsdk.UpdateWebACLOutput
@@ -7331,4 +7238,85 @@ func (rm *resourceManager) getImmutableFieldChanges(
 	}
 
 	return fields
+}
+func (rm *resourceManager) setOutputRulesNestedStatements(
+	outputRules []*svcapitypes.Rule,
+	sdkFindOutput *svcsdk.GetWebACLOutput,
+) (err error) {
+	for i, rule := range sdkFindOutput.WebACL.Rules {
+		if rule.Statement != nil {
+			if rule.Statement.AndStatement != nil {
+				outputRules[i].Statement.AndStatement, err = statementToString(rule.Statement.AndStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.OrStatement != nil {
+				outputRules[i].Statement.OrStatement, err = statementToString(rule.Statement.OrStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.NotStatement != nil {
+				outputRules[i].Statement.NotStatement, err = statementToString(rule.Statement.NotStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
+				outputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = statementToString(rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
+				outputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = statementToString(rule.Statement.RateBasedStatement.ScopeDownStatement)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return err
+}
+
+func (rm *resourceManager) setInputRulesNestedStatements(
+	inputRules []*svcsdk.Rule,
+	r *resource,
+) (err error) {
+	for i, rule := range r.ko.Spec.Rules {
+		if rule.Statement != nil {
+			if rule.Statement.AndStatement != nil {
+				inputRules[i].Statement.AndStatement, err = stringToStatement[svcsdk.AndStatement](rule.Statement.AndStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.OrStatement != nil {
+				inputRules[i].Statement.OrStatement, err = stringToStatement[svcsdk.OrStatement](rule.Statement.OrStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.NotStatement != nil {
+				inputRules[i].Statement.NotStatement, err = stringToStatement[svcsdk.NotStatement](rule.Statement.NotStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
+				inputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
+				if err != nil {
+					return err
+				}
+			}
+			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
+				inputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return err
 }
