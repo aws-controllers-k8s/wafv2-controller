@@ -64,6 +64,40 @@ def simple_rule_group():
         pass
 
 
+@pytest.fixture(scope="module")
+def nested_statement_rule_group():
+    rule_group_name = random_suffix_name("my-nested-rule-group", 24)
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["RULE_GROUP_NAME"] = rule_group_name
+
+    resource_data = load_wafv2_resource(
+        "rule_group_nested_statement",
+        additional_replacements=replacements,
+    )
+
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP,
+        CRD_VERSION,
+        RULE_GROUP_RESOURCE_PLURAL,
+        rule_group_name,
+        namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    yield (ref, cr)
+
+    try:
+        _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
+        assert deleted
+    except:
+        pass
+
+
 @service_marker
 @pytest.mark.canary
 class TestRuleGroup:
@@ -111,6 +145,42 @@ class TestRuleGroup:
         assert len(rules) == 1
         assert rules[0]["Name"] == "rule-3"
         assert description == "updated description"
+
+        # delete the CR
+        _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
+        assert deleted
+        rule_group.wait_until_deleted(rule_group_name, rule_group_id)
+
+    def nested_statement(self, nested_statement_rule_group):
+        ref, _ = nested_statement_rule_group
+
+        time.sleep(CREATE_WAIT_SECONDS)
+        condition.assert_synced(ref)
+
+        cr = k8s.get_resource(ref)
+
+        assert "spec" in cr
+        assert "name" in cr["spec"]
+        rule_group_name = cr["spec"]["name"]
+
+        assert "status" in cr
+        assert "id" in cr["status"]
+        rule_group_id = cr["status"]["id"]
+
+        latest = rule_group.get(rule_group_name, rule_group_id)
+        assert latest is not None
+        assert "Rules" in latest
+        rules = latest["Rules"]
+        assert len(rules) == 1
+
+        # check the nested statement
+        assert "Statement" in rules[0]
+        assert "AndStatement" in rules[0]["Statement"]
+        statements = rules[0]["Statement"]["AndStatement"]["Statements"]
+        assert len(statements) == 2
+        assert "GeoMatchStatement" in statements[0]
+        assert "NotStatement" in statements[1]
+        assert "ByteMatchStatement" in statements[1]["NotStatement"]["Statement"]
 
         # delete the CR
         _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
