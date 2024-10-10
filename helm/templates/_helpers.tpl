@@ -55,6 +55,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
   verbs:
   - get
   - list
@@ -69,37 +70,9 @@ rules:
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
   - services.k8s.aws
   resources:
   - adoptedresources
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - services.k8s.aws
-  resources:
-  - adoptedresources/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - services.k8s.aws
-  resources:
   - fieldexports
   verbs:
   - create
@@ -112,6 +85,7 @@ rules:
 - apiGroups:
   - services.k8s.aws
   resources:
+  - adoptedresources/status
   - fieldexports/status
   verbs:
   - get
@@ -121,45 +95,7 @@ rules:
   - wafv2.services.k8s.aws
   resources:
   - ipsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - wafv2.services.k8s.aws
-  resources:
-  - ipsets/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - wafv2.services.k8s.aws
-  resources:
   - rulegroups
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - wafv2.services.k8s.aws
-  resources:
-  - rulegroups/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - wafv2.services.k8s.aws
-  resources:
   - webacls
   verbs:
   - create
@@ -172,6 +108,8 @@ rules:
 - apiGroups:
   - wafv2.services.k8s.aws
   resources:
+  - ipsets/status
+  - rulegroups/status
   - webacls/status
   verbs:
   - get
