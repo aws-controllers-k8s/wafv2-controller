@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/wafv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.WAFV2{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.IPSet{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +76,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.GetIPSetOutput
-	resp, err = rm.sdkapi.GetIPSetWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetIPSet(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "GetIPSet", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "UNKNOWN" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -98,13 +98,7 @@ func (rm *resourceManager) sdkFind(
 		ko.Status.ACKResourceMetadata.ARN = &arn
 	}
 	if resp.IPSet.Addresses != nil {
-		f1 := []*string{}
-		for _, f1iter := range resp.IPSet.Addresses {
-			var f1elem string
-			f1elem = *f1iter
-			f1 = append(f1, &f1elem)
-		}
-		ko.Spec.Addresses = f1
+		ko.Spec.Addresses = aws.StringSlice(resp.IPSet.Addresses)
 	} else {
 		ko.Spec.Addresses = nil
 	}
@@ -113,8 +107,8 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.Description = nil
 	}
-	if resp.IPSet.IPAddressVersion != nil {
-		ko.Spec.IPAddressVersion = resp.IPSet.IPAddressVersion
+	if resp.IPSet.IPAddressVersion != "" {
+		ko.Spec.IPAddressVersion = aws.String(string(resp.IPSet.IPAddressVersion))
 	} else {
 		ko.Spec.IPAddressVersion = nil
 	}
@@ -142,7 +136,7 @@ func (rm *resourceManager) sdkFind(
 func (rm *resourceManager) requiredFieldsMissingFromReadOneInput(
 	r *resource,
 ) bool {
-	return r.ko.Spec.Name == nil || r.ko.Spec.Scope == nil || r.ko.Status.ID == nil
+	return r.ko.Status.ID == nil || r.ko.Spec.Name == nil || r.ko.Spec.Scope == nil
 
 }
 
@@ -154,13 +148,13 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.GetIPSetInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 
 	return res, nil
@@ -185,7 +179,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateIPSetOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateIPSetWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateIPSet(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateIPSet", err)
 	if err != nil {
 		return nil, err
@@ -235,39 +229,33 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateIPSetInput{}
 
 	if r.ko.Spec.Addresses != nil {
-		f0 := []*string{}
-		for _, f0iter := range r.ko.Spec.Addresses {
-			var f0elem string
-			f0elem = *f0iter
-			f0 = append(f0, &f0elem)
-		}
-		res.SetAddresses(f0)
+		res.Addresses = aws.ToStringSlice(r.ko.Spec.Addresses)
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.IPAddressVersion != nil {
-		res.SetIPAddressVersion(*r.ko.Spec.IPAddressVersion)
+		res.IPAddressVersion = svcsdktypes.IPAddressVersion(*r.ko.Spec.IPAddressVersion)
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 	if r.ko.Spec.Tags != nil {
-		f5 := []*svcsdk.Tag{}
+		f5 := []svcsdktypes.Tag{}
 		for _, f5iter := range r.ko.Spec.Tags {
-			f5elem := &svcsdk.Tag{}
+			f5elem := &svcsdktypes.Tag{}
 			if f5iter.Key != nil {
-				f5elem.SetKey(*f5iter.Key)
+				f5elem.Key = f5iter.Key
 			}
 			if f5iter.Value != nil {
-				f5elem.SetValue(*f5iter.Value)
+				f5elem.Value = f5iter.Value
 			}
-			f5 = append(f5, f5elem)
+			f5 = append(f5, *f5elem)
 		}
-		res.SetTags(f5)
+		res.Tags = f5
 	}
 
 	return res, nil
@@ -297,7 +285,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateIPSetOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateIPSetWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateIPSet(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateIPSet", err)
 	if err != nil {
 		return nil, err
@@ -320,28 +308,22 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateIPSetInput{}
 
 	if r.ko.Spec.Addresses != nil {
-		f0 := []*string{}
-		for _, f0iter := range r.ko.Spec.Addresses {
-			var f0elem string
-			f0elem = *f0iter
-			f0 = append(f0, &f0elem)
-		}
-		res.SetAddresses(f0)
+		res.Addresses = aws.ToStringSlice(r.ko.Spec.Addresses)
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Status.LockToken != nil {
-		res.SetLockToken(*r.ko.Status.LockToken)
+		res.LockToken = r.ko.Status.LockToken
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 
 	return res, nil
@@ -363,7 +345,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteIPSetOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteIPSetWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteIPSet(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteIPSet", err)
 	return nil, err
 }
@@ -376,16 +358,16 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteIPSetInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Status.LockToken != nil {
-		res.SetLockToken(*r.ko.Status.LockToken)
+		res.LockToken = r.ko.Status.LockToken
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 
 	return res, nil

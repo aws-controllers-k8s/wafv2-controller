@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/wafv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.WAFV2{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.RuleGroup{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -80,13 +83,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.GetRuleGroupOutput
-	resp, err = rm.sdkapi.GetRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.GetRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "GetRuleGroup", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "UNKNOWN" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "UNKNOWN" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -115,8 +116,8 @@ func (rm *resourceManager) sdkFind(
 			if f4valiter.Content != nil {
 				f4val.Content = f4valiter.Content
 			}
-			if f4valiter.ContentType != nil {
-				f4val.ContentType = f4valiter.ContentType
+			if f4valiter.ContentType != "" {
+				f4val.ContentType = aws.String(string(f4valiter.ContentType))
 			}
 			f4[f4key] = f4val
 		}
@@ -175,7 +176,8 @@ func (rm *resourceManager) sdkFind(
 							f9elemf0f1f0.CustomResponseBodyKey = f9iter.Action.Block.CustomResponse.CustomResponseBodyKey
 						}
 						if f9iter.Action.Block.CustomResponse.ResponseCode != nil {
-							f9elemf0f1f0.ResponseCode = f9iter.Action.Block.CustomResponse.ResponseCode
+							responseCodeCopy := int64(*f9iter.Action.Block.CustomResponse.ResponseCode)
+							f9elemf0f1f0.ResponseCode = &responseCodeCopy
 						}
 						if f9iter.Action.Block.CustomResponse.ResponseHeaders != nil {
 							f9elemf0f1f0f2 := []*svcapitypes.CustomHTTPHeader{}
@@ -318,9 +320,8 @@ func (rm *resourceManager) sdkFind(
 				}
 				f9elem.OverrideAction = f9elemf4
 			}
-			if f9iter.Priority != nil {
-				f9elem.Priority = f9iter.Priority
-			}
+			priorityCopy := int64(f9iter.Priority)
+			f9elem.Priority = &priorityCopy
 			if f9iter.RuleLabels != nil {
 				f9elemf6 := []*svcapitypes.Label{}
 				for _, f9elemf6iter := range f9iter.RuleLabels {
@@ -344,8 +345,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.ByteMatchStatement.FieldToMatch.Body != nil {
 							f9elemf7f1f0f1 := &svcapitypes.Body{}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f1f0f1.OversizeHandling = f9iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f1f0f1.OversizeHandling = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f1f0.Body = f9elemf7f1f0f1
 						}
@@ -358,37 +359,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f1f0f2f0.All = f9elemf7f1f0f2f0f0
 								}
 								if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f1f0f2f0f1 := []*string{}
-									for _, f9elemf7f1f0f2f0f1iter := range f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f1f0f2f0f1elem string
-										f9elemf7f1f0f2f0f1elem = *f9elemf7f1f0f2f0f1iter
-										f9elemf7f1f0f2f0f1 = append(f9elemf7f1f0f2f0f1, &f9elemf7f1f0f2f0f1elem)
-									}
-									f9elemf7f1f0f2f0.ExcludedCookies = f9elemf7f1f0f2f0f1
+									f9elemf7f1f0f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f1f0f2f0f2 := []*string{}
-									for _, f9elemf7f1f0f2f0f2iter := range f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f1f0f2f0f2elem string
-										f9elemf7f1f0f2f0f2elem = *f9elemf7f1f0f2f0f2iter
-										f9elemf7f1f0f2f0f2 = append(f9elemf7f1f0f2f0f2, &f9elemf7f1f0f2f0f2elem)
-									}
-									f9elemf7f1f0f2f0.IncludedCookies = f9elemf7f1f0f2f0f2
+									f9elemf7f1f0f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f1f0f2.MatchPattern = f9elemf7f1f0f2f0
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f1f0f2.MatchScope = f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f1f0f2.MatchScope = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f1f0f2.OversizeHandling = f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f1f0f2.OversizeHandling = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f1f0.Cookies = f9elemf7f1f0f2
 						}
 						if f9iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f1f0f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f1f0f3.OversizeHandling = f9iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f1f0f3.OversizeHandling = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f1f0.HeaderOrder = f9elemf7f1f0f3
 						}
@@ -401,44 +390,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f1f0f4f0.All = f9elemf7f1f0f4f0f0
 								}
 								if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f1f0f4f0f1 := []*string{}
-									for _, f9elemf7f1f0f4f0f1iter := range f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f1f0f4f0f1elem string
-										f9elemf7f1f0f4f0f1elem = *f9elemf7f1f0f4f0f1iter
-										f9elemf7f1f0f4f0f1 = append(f9elemf7f1f0f4f0f1, &f9elemf7f1f0f4f0f1elem)
-									}
-									f9elemf7f1f0f4f0.ExcludedHeaders = f9elemf7f1f0f4f0f1
+									f9elemf7f1f0f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f1f0f4f0f2 := []*string{}
-									for _, f9elemf7f1f0f4f0f2iter := range f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f1f0f4f0f2elem string
-										f9elemf7f1f0f4f0f2elem = *f9elemf7f1f0f4f0f2iter
-										f9elemf7f1f0f4f0f2 = append(f9elemf7f1f0f4f0f2, &f9elemf7f1f0f4f0f2elem)
-									}
-									f9elemf7f1f0f4f0.IncludedHeaders = f9elemf7f1f0f4f0f2
+									f9elemf7f1f0f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f1f0f4.MatchPattern = f9elemf7f1f0f4f0
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f1f0f4.MatchScope = f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f1f0f4.MatchScope = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f1f0f4.OversizeHandling = f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f1f0f4.OversizeHandling = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f1f0.Headers = f9elemf7f1f0f4
 						}
 						if f9iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f1f0f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f1f0f5.FallbackBehavior = f9iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f1f0f5.FallbackBehavior = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f1f0.JA3Fingerprint = f9elemf7f1f0f5
 						}
 						if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f1f0f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f1f0f6.InvalidFallbackBehavior = f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f1f0f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f1f0f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -447,21 +424,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f1f0f6f1.All = f9elemf7f1f0f6f1f0
 								}
 								if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f1f0f6f1f1 := []*string{}
-									for _, f9elemf7f1f0f6f1f1iter := range f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f1f0f6f1f1elem string
-										f9elemf7f1f0f6f1f1elem = *f9elemf7f1f0f6f1f1iter
-										f9elemf7f1f0f6f1f1 = append(f9elemf7f1f0f6f1f1, &f9elemf7f1f0f6f1f1elem)
-									}
-									f9elemf7f1f0f6f1.IncludedPaths = f9elemf7f1f0f6f1f1
+									f9elemf7f1f0f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f1f0f6.MatchPattern = f9elemf7f1f0f6f1
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f1f0f6.MatchScope = f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f1f0f6.MatchScope = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f1f0f6.OversizeHandling = f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f1f0f6.OversizeHandling = aws.String(string(f9iter.Statement.ByteMatchStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f1f0.JSONBody = f9elemf7f1f0f6
 						}
@@ -493,8 +464,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						f9elemf7f1.FieldToMatch = f9elemf7f1f0
 					}
-					if f9iter.Statement.ByteMatchStatement.PositionalConstraint != nil {
-						f9elemf7f1.PositionalConstraint = f9iter.Statement.ByteMatchStatement.PositionalConstraint
+					if f9iter.Statement.ByteMatchStatement.PositionalConstraint != "" {
+						f9elemf7f1.PositionalConstraint = aws.String(string(f9iter.Statement.ByteMatchStatement.PositionalConstraint))
 					}
 					if f9iter.Statement.ByteMatchStatement.SearchString != nil {
 						f9elemf7f1.SearchString = f9iter.Statement.ByteMatchStatement.SearchString
@@ -503,11 +474,10 @@ func (rm *resourceManager) sdkFind(
 						f9elemf7f1f3 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f1f3iter := range f9iter.Statement.ByteMatchStatement.TextTransformations {
 							f9elemf7f1f3elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f1f3iter.Priority != nil {
-								f9elemf7f1f3elem.Priority = f9elemf7f1f3iter.Priority
-							}
-							if f9elemf7f1f3iter.Type != nil {
-								f9elemf7f1f3elem.Type = f9elemf7f1f3iter.Type
+							priorityCopy := int64(f9elemf7f1f3iter.Priority)
+							f9elemf7f1f3elem.Priority = &priorityCopy
+							if f9elemf7f1f3iter.Type != "" {
+								f9elemf7f1f3elem.Type = aws.String(string(f9elemf7f1f3iter.Type))
 							}
 							f9elemf7f1f3 = append(f9elemf7f1f3, f9elemf7f1f3elem)
 						}
@@ -520,16 +490,16 @@ func (rm *resourceManager) sdkFind(
 					if f9iter.Statement.GeoMatchStatement.CountryCodes != nil {
 						f9elemf7f2f0 := []*string{}
 						for _, f9elemf7f2f0iter := range f9iter.Statement.GeoMatchStatement.CountryCodes {
-							var f9elemf7f2f0elem string
-							f9elemf7f2f0elem = *f9elemf7f2f0iter
-							f9elemf7f2f0 = append(f9elemf7f2f0, &f9elemf7f2f0elem)
+							var f9elemf7f2f0elem *string
+							f9elemf7f2f0elem = aws.String(string(f9elemf7f2f0iter))
+							f9elemf7f2f0 = append(f9elemf7f2f0, f9elemf7f2f0elem)
 						}
 						f9elemf7f2.CountryCodes = f9elemf7f2f0
 					}
 					if f9iter.Statement.GeoMatchStatement.ForwardedIPConfig != nil {
 						f9elemf7f2f1 := &svcapitypes.ForwardedIPConfig{}
-						if f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f9elemf7f2f1.FallbackBehavior = f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior
+						if f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior != "" {
+							f9elemf7f2f1.FallbackBehavior = aws.String(string(f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior))
 						}
 						if f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName != nil {
 							f9elemf7f2f1.HeaderName = f9iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName
@@ -545,14 +515,14 @@ func (rm *resourceManager) sdkFind(
 					}
 					if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig != nil {
 						f9elemf7f3f1 := &svcapitypes.IPSetForwardedIPConfig{}
-						if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior != nil {
-							f9elemf7f3f1.FallbackBehavior = f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior
+						if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior != "" {
+							f9elemf7f3f1.FallbackBehavior = aws.String(string(f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior))
 						}
 						if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName != nil {
 							f9elemf7f3f1.HeaderName = f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName
 						}
-						if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position != nil {
-							f9elemf7f3f1.Position = f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position
+						if f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position != "" {
+							f9elemf7f3f1.Position = aws.String(string(f9iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position))
 						}
 						f9elemf7f3.IPSetForwardedIPConfig = f9elemf7f3f1
 					}
@@ -563,8 +533,8 @@ func (rm *resourceManager) sdkFind(
 					if f9iter.Statement.LabelMatchStatement.Key != nil {
 						f9elemf7f4.Key = f9iter.Statement.LabelMatchStatement.Key
 					}
-					if f9iter.Statement.LabelMatchStatement.Scope != nil {
-						f9elemf7f4.Scope = f9iter.Statement.LabelMatchStatement.Scope
+					if f9iter.Statement.LabelMatchStatement.Scope != "" {
+						f9elemf7f4.Scope = aws.String(string(f9iter.Statement.LabelMatchStatement.Scope))
 					}
 					f9elemf7.LabelMatchStatement = f9elemf7f4
 				}
@@ -590,9 +560,7 @@ func (rm *resourceManager) sdkFind(
 								if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath != nil {
 									f9elemf7f5f1elemf0.CreationPath = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath
 								}
-								if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath != nil {
-									f9elemf7f5f1elemf0.EnableRegexInPath = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath
-								}
+								f9elemf7f5f1elemf0.EnableRegexInPath = &f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath
 								if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath != nil {
 									f9elemf7f5f1elemf0.RegistrationPagePath = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath
 								}
@@ -623,8 +591,8 @@ func (rm *resourceManager) sdkFind(
 										}
 										f9elemf7f5f1elemf0f3.PasswordField = f9elemf7f5f1elemf0f3f2
 									}
-									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType != nil {
-										f9elemf7f5f1elemf0f3.PayloadType = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType
+									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType != "" {
+										f9elemf7f5f1elemf0f3.PayloadType = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType))
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PhoneNumberFields != nil {
 										f9elemf7f5f1elemf0f3f4 := []*svcapitypes.PhoneNumberField{}
@@ -651,72 +619,36 @@ func (rm *resourceManager) sdkFind(
 									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains != nil {
 										f9elemf7f5f1elemf0f4f0 := &svcapitypes.ResponseInspectionBodyContains{}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f9elemf7f5f1elemf0f4f0f0 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f0f0iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f9elemf7f5f1elemf0f4f0f0elem string
-												f9elemf7f5f1elemf0f4f0f0elem = *f9elemf7f5f1elemf0f4f0f0iter
-												f9elemf7f5f1elemf0f4f0f0 = append(f9elemf7f5f1elemf0f4f0f0, &f9elemf7f5f1elemf0f4f0f0elem)
-											}
-											f9elemf7f5f1elemf0f4f0.FailureStrings = f9elemf7f5f1elemf0f4f0f0
+											f9elemf7f5f1elemf0f4f0.FailureStrings = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f9elemf7f5f1elemf0f4f0f1 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f0f1iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f9elemf7f5f1elemf0f4f0f1elem string
-												f9elemf7f5f1elemf0f4f0f1elem = *f9elemf7f5f1elemf0f4f0f1iter
-												f9elemf7f5f1elemf0f4f0f1 = append(f9elemf7f5f1elemf0f4f0f1, &f9elemf7f5f1elemf0f4f0f1elem)
-											}
-											f9elemf7f5f1elemf0f4f0.SuccessStrings = f9elemf7f5f1elemf0f4f0f1
+											f9elemf7f5f1elemf0f4f0.SuccessStrings = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
 										f9elemf7f5f1elemf0f4.BodyContains = f9elemf7f5f1elemf0f4f0
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header != nil {
 										f9elemf7f5f1elemf0f4f1 := &svcapitypes.ResponseInspectionHeader{}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f9elemf7f5f1elemf0f4f1f0 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f1f0iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues {
-												var f9elemf7f5f1elemf0f4f1f0elem string
-												f9elemf7f5f1elemf0f4f1f0elem = *f9elemf7f5f1elemf0f4f1f0iter
-												f9elemf7f5f1elemf0f4f1f0 = append(f9elemf7f5f1elemf0f4f1f0, &f9elemf7f5f1elemf0f4f1f0elem)
-											}
-											f9elemf7f5f1elemf0f4f1.FailureValues = f9elemf7f5f1elemf0f4f1f0
+											f9elemf7f5f1elemf0f4f1.FailureValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name != nil {
 											f9elemf7f5f1elemf0f4f1.Name = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f9elemf7f5f1elemf0f4f1f2 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f1f2iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f9elemf7f5f1elemf0f4f1f2elem string
-												f9elemf7f5f1elemf0f4f1f2elem = *f9elemf7f5f1elemf0f4f1f2iter
-												f9elemf7f5f1elemf0f4f1f2 = append(f9elemf7f5f1elemf0f4f1f2, &f9elemf7f5f1elemf0f4f1f2elem)
-											}
-											f9elemf7f5f1elemf0f4f1.SuccessValues = f9elemf7f5f1elemf0f4f1f2
+											f9elemf7f5f1elemf0f4f1.SuccessValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
 										f9elemf7f5f1elemf0f4.Header = f9elemf7f5f1elemf0f4f1
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json != nil {
 										f9elemf7f5f1elemf0f4f2 := &svcapitypes.ResponseInspectionJSON{}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.FailureValues != nil {
-											f9elemf7f5f1elemf0f4f2f0 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f2f0iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.FailureValues {
-												var f9elemf7f5f1elemf0f4f2f0elem string
-												f9elemf7f5f1elemf0f4f2f0elem = *f9elemf7f5f1elemf0f4f2f0iter
-												f9elemf7f5f1elemf0f4f2f0 = append(f9elemf7f5f1elemf0f4f2f0, &f9elemf7f5f1elemf0f4f2f0elem)
-											}
-											f9elemf7f5f1elemf0f4f2.FailureValues = f9elemf7f5f1elemf0f4f2f0
+											f9elemf7f5f1elemf0f4f2.FailureValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.FailureValues)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.Identifier != nil {
 											f9elemf7f5f1elemf0f4f2.Identifier = f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.Identifier
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.SuccessValues != nil {
-											f9elemf7f5f1elemf0f4f2f2 := []*string{}
-											for _, f9elemf7f5f1elemf0f4f2f2iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.SuccessValues {
-												var f9elemf7f5f1elemf0f4f2f2elem string
-												f9elemf7f5f1elemf0f4f2f2elem = *f9elemf7f5f1elemf0f4f2f2iter
-												f9elemf7f5f1elemf0f4f2f2 = append(f9elemf7f5f1elemf0f4f2f2, &f9elemf7f5f1elemf0f4f2f2elem)
-											}
-											f9elemf7f5f1elemf0f4f2.SuccessValues = f9elemf7f5f1elemf0f4f2f2
+											f9elemf7f5f1elemf0f4f2.SuccessValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Json.SuccessValues)
 										}
 										f9elemf7f5f1elemf0f4.JSON = f9elemf7f5f1elemf0f4f2
 									}
@@ -725,18 +657,20 @@ func (rm *resourceManager) sdkFind(
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
 											f9elemf7f5f1elemf0f4f3f0 := []*int64{}
 											for _, f9elemf7f5f1elemf0f4f3f0iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f9elemf7f5f1elemf0f4f3f0elem int64
-												f9elemf7f5f1elemf0f4f3f0elem = *f9elemf7f5f1elemf0f4f3f0iter
-												f9elemf7f5f1elemf0f4f3f0 = append(f9elemf7f5f1elemf0f4f3f0, &f9elemf7f5f1elemf0f4f3f0elem)
+												var f9elemf7f5f1elemf0f4f3f0elem *int64
+												failureCodeCopy := int64(f9elemf7f5f1elemf0f4f3f0iter)
+												f9elemf7f5f1elemf0f4f3f0elem = &failureCodeCopy
+												f9elemf7f5f1elemf0f4f3f0 = append(f9elemf7f5f1elemf0f4f3f0, f9elemf7f5f1elemf0f4f3f0elem)
 											}
 											f9elemf7f5f1elemf0f4f3.FailureCodes = f9elemf7f5f1elemf0f4f3f0
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
 											f9elemf7f5f1elemf0f4f3f1 := []*int64{}
 											for _, f9elemf7f5f1elemf0f4f3f1iter := range f9elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f9elemf7f5f1elemf0f4f3f1elem int64
-												f9elemf7f5f1elemf0f4f3f1elem = *f9elemf7f5f1elemf0f4f3f1iter
-												f9elemf7f5f1elemf0f4f3f1 = append(f9elemf7f5f1elemf0f4f3f1, &f9elemf7f5f1elemf0f4f3f1elem)
+												var f9elemf7f5f1elemf0f4f3f1elem *int64
+												successCodeCopy := int64(f9elemf7f5f1elemf0f4f3f1iter)
+												f9elemf7f5f1elemf0f4f3f1elem = &successCodeCopy
+												f9elemf7f5f1elemf0f4f3f1 = append(f9elemf7f5f1elemf0f4f3f1, f9elemf7f5f1elemf0f4f3f1elem)
 											}
 											f9elemf7f5f1elemf0f4f3.SuccessCodes = f9elemf7f5f1elemf0f4f3f1
 										}
@@ -748,9 +682,7 @@ func (rm *resourceManager) sdkFind(
 							}
 							if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet != nil {
 								f9elemf7f5f1elemf1 := &svcapitypes.AWSManagedRulesATPRuleSet{}
-								if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath != nil {
-									f9elemf7f5f1elemf1.EnableRegexInPath = f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath
-								}
+								f9elemf7f5f1elemf1.EnableRegexInPath = &f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath
 								if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath != nil {
 									f9elemf7f5f1elemf1.LoginPath = f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath
 								}
@@ -763,8 +695,8 @@ func (rm *resourceManager) sdkFind(
 										}
 										f9elemf7f5f1elemf1f2.PasswordField = f9elemf7f5f1elemf1f2f0
 									}
-									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType != nil {
-										f9elemf7f5f1elemf1f2.PayloadType = f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType
+									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType != "" {
+										f9elemf7f5f1elemf1f2.PayloadType = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType))
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField != nil {
 										f9elemf7f5f1elemf1f2f2 := &svcapitypes.UsernameField{}
@@ -780,72 +712,36 @@ func (rm *resourceManager) sdkFind(
 									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains != nil {
 										f9elemf7f5f1elemf1f3f0 := &svcapitypes.ResponseInspectionBodyContains{}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f9elemf7f5f1elemf1f3f0f0 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f0f0iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f9elemf7f5f1elemf1f3f0f0elem string
-												f9elemf7f5f1elemf1f3f0f0elem = *f9elemf7f5f1elemf1f3f0f0iter
-												f9elemf7f5f1elemf1f3f0f0 = append(f9elemf7f5f1elemf1f3f0f0, &f9elemf7f5f1elemf1f3f0f0elem)
-											}
-											f9elemf7f5f1elemf1f3f0.FailureStrings = f9elemf7f5f1elemf1f3f0f0
+											f9elemf7f5f1elemf1f3f0.FailureStrings = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f9elemf7f5f1elemf1f3f0f1 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f0f1iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f9elemf7f5f1elemf1f3f0f1elem string
-												f9elemf7f5f1elemf1f3f0f1elem = *f9elemf7f5f1elemf1f3f0f1iter
-												f9elemf7f5f1elemf1f3f0f1 = append(f9elemf7f5f1elemf1f3f0f1, &f9elemf7f5f1elemf1f3f0f1elem)
-											}
-											f9elemf7f5f1elemf1f3f0.SuccessStrings = f9elemf7f5f1elemf1f3f0f1
+											f9elemf7f5f1elemf1f3f0.SuccessStrings = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
 										f9elemf7f5f1elemf1f3.BodyContains = f9elemf7f5f1elemf1f3f0
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header != nil {
 										f9elemf7f5f1elemf1f3f1 := &svcapitypes.ResponseInspectionHeader{}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f9elemf7f5f1elemf1f3f1f0 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f1f0iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues {
-												var f9elemf7f5f1elemf1f3f1f0elem string
-												f9elemf7f5f1elemf1f3f1f0elem = *f9elemf7f5f1elemf1f3f1f0iter
-												f9elemf7f5f1elemf1f3f1f0 = append(f9elemf7f5f1elemf1f3f1f0, &f9elemf7f5f1elemf1f3f1f0elem)
-											}
-											f9elemf7f5f1elemf1f3f1.FailureValues = f9elemf7f5f1elemf1f3f1f0
+											f9elemf7f5f1elemf1f3f1.FailureValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name != nil {
 											f9elemf7f5f1elemf1f3f1.Name = f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f9elemf7f5f1elemf1f3f1f2 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f1f2iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f9elemf7f5f1elemf1f3f1f2elem string
-												f9elemf7f5f1elemf1f3f1f2elem = *f9elemf7f5f1elemf1f3f1f2iter
-												f9elemf7f5f1elemf1f3f1f2 = append(f9elemf7f5f1elemf1f3f1f2, &f9elemf7f5f1elemf1f3f1f2elem)
-											}
-											f9elemf7f5f1elemf1f3f1.SuccessValues = f9elemf7f5f1elemf1f3f1f2
+											f9elemf7f5f1elemf1f3f1.SuccessValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
 										f9elemf7f5f1elemf1f3.Header = f9elemf7f5f1elemf1f3f1
 									}
 									if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json != nil {
 										f9elemf7f5f1elemf1f3f2 := &svcapitypes.ResponseInspectionJSON{}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.FailureValues != nil {
-											f9elemf7f5f1elemf1f3f2f0 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f2f0iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.FailureValues {
-												var f9elemf7f5f1elemf1f3f2f0elem string
-												f9elemf7f5f1elemf1f3f2f0elem = *f9elemf7f5f1elemf1f3f2f0iter
-												f9elemf7f5f1elemf1f3f2f0 = append(f9elemf7f5f1elemf1f3f2f0, &f9elemf7f5f1elemf1f3f2f0elem)
-											}
-											f9elemf7f5f1elemf1f3f2.FailureValues = f9elemf7f5f1elemf1f3f2f0
+											f9elemf7f5f1elemf1f3f2.FailureValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.FailureValues)
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.Identifier != nil {
 											f9elemf7f5f1elemf1f3f2.Identifier = f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.Identifier
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.SuccessValues != nil {
-											f9elemf7f5f1elemf1f3f2f2 := []*string{}
-											for _, f9elemf7f5f1elemf1f3f2f2iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.SuccessValues {
-												var f9elemf7f5f1elemf1f3f2f2elem string
-												f9elemf7f5f1elemf1f3f2f2elem = *f9elemf7f5f1elemf1f3f2f2iter
-												f9elemf7f5f1elemf1f3f2f2 = append(f9elemf7f5f1elemf1f3f2f2, &f9elemf7f5f1elemf1f3f2f2elem)
-											}
-											f9elemf7f5f1elemf1f3f2.SuccessValues = f9elemf7f5f1elemf1f3f2f2
+											f9elemf7f5f1elemf1f3f2.SuccessValues = aws.StringSlice(f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Json.SuccessValues)
 										}
 										f9elemf7f5f1elemf1f3.JSON = f9elemf7f5f1elemf1f3f2
 									}
@@ -854,18 +750,20 @@ func (rm *resourceManager) sdkFind(
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
 											f9elemf7f5f1elemf1f3f3f0 := []*int64{}
 											for _, f9elemf7f5f1elemf1f3f3f0iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f9elemf7f5f1elemf1f3f3f0elem int64
-												f9elemf7f5f1elemf1f3f3f0elem = *f9elemf7f5f1elemf1f3f3f0iter
-												f9elemf7f5f1elemf1f3f3f0 = append(f9elemf7f5f1elemf1f3f3f0, &f9elemf7f5f1elemf1f3f3f0elem)
+												var f9elemf7f5f1elemf1f3f3f0elem *int64
+												failureCodeCopy := int64(f9elemf7f5f1elemf1f3f3f0iter)
+												f9elemf7f5f1elemf1f3f3f0elem = &failureCodeCopy
+												f9elemf7f5f1elemf1f3f3f0 = append(f9elemf7f5f1elemf1f3f3f0, f9elemf7f5f1elemf1f3f3f0elem)
 											}
 											f9elemf7f5f1elemf1f3f3.FailureCodes = f9elemf7f5f1elemf1f3f3f0
 										}
 										if f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
 											f9elemf7f5f1elemf1f3f3f1 := []*int64{}
 											for _, f9elemf7f5f1elemf1f3f3f1iter := range f9elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f9elemf7f5f1elemf1f3f3f1elem int64
-												f9elemf7f5f1elemf1f3f3f1elem = *f9elemf7f5f1elemf1f3f3f1iter
-												f9elemf7f5f1elemf1f3f3f1 = append(f9elemf7f5f1elemf1f3f3f1, &f9elemf7f5f1elemf1f3f3f1elem)
+												var f9elemf7f5f1elemf1f3f3f1elem *int64
+												successCodeCopy := int64(f9elemf7f5f1elemf1f3f3f1iter)
+												f9elemf7f5f1elemf1f3f3f1elem = &successCodeCopy
+												f9elemf7f5f1elemf1f3f3f1 = append(f9elemf7f5f1elemf1f3f3f1, f9elemf7f5f1elemf1f3f3f1elem)
 											}
 											f9elemf7f5f1elemf1f3f3.SuccessCodes = f9elemf7f5f1elemf1f3f3f1
 										}
@@ -880,8 +778,8 @@ func (rm *resourceManager) sdkFind(
 								if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
 									f9elemf7f5f1elemf2.EnableMachineLearning = f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
-								if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != nil {
-									f9elemf7f5f1elemf2.InspectionLevel = f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel
+								if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != "" {
+									f9elemf7f5f1elemf2.InspectionLevel = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel))
 								}
 								f9elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f9elemf7f5f1elemf2
 							}
@@ -895,8 +793,8 @@ func (rm *resourceManager) sdkFind(
 								}
 								f9elemf7f5f1elem.PasswordField = f9elemf7f5f1elemf4
 							}
-							if f9elemf7f5f1iter.PayloadType != nil {
-								f9elemf7f5f1elem.PayloadType = f9elemf7f5f1iter.PayloadType
+							if f9elemf7f5f1iter.PayloadType != "" {
+								f9elemf7f5f1elem.PayloadType = aws.String(string(f9elemf7f5f1iter.PayloadType))
 							}
 							if f9elemf7f5f1iter.UsernameField != nil {
 								f9elemf7f5f1elemf6 := &svcapitypes.UsernameField{}
@@ -948,7 +846,8 @@ func (rm *resourceManager) sdkFind(
 											f9elemf7f5f3elemf0f1f0.CustomResponseBodyKey = f9elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f9elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f9elemf7f5f3elemf0f1f0.ResponseCode = f9elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode
+											responseCodeCopy := int64(*f9elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											f9elemf7f5f3elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f9elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
 											f9elemf7f5f3elemf0f1f0f2 := []*svcapitypes.CustomHTTPHeader{}
@@ -1053,8 +952,8 @@ func (rm *resourceManager) sdkFind(
 				}
 				if f9iter.Statement.RateBasedStatement != nil {
 					f9elemf7f8 := &svcapitypes.RateBasedStatement{}
-					if f9iter.Statement.RateBasedStatement.AggregateKeyType != nil {
-						f9elemf7f8.AggregateKeyType = f9iter.Statement.RateBasedStatement.AggregateKeyType
+					if f9iter.Statement.RateBasedStatement.AggregateKeyType != "" {
+						f9elemf7f8.AggregateKeyType = aws.String(string(f9iter.Statement.RateBasedStatement.AggregateKeyType))
 					}
 					if f9iter.Statement.RateBasedStatement.CustomKeys != nil {
 						f9elemf7f8f1 := []*svcapitypes.RateBasedStatementCustomKey{}
@@ -1069,11 +968,10 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f8f1elemf0f1 := []*svcapitypes.TextTransformation{}
 									for _, f9elemf7f8f1elemf0f1iter := range f9elemf7f8f1iter.Cookie.TextTransformations {
 										f9elemf7f8f1elemf0f1elem := &svcapitypes.TextTransformation{}
-										if f9elemf7f8f1elemf0f1iter.Priority != nil {
-											f9elemf7f8f1elemf0f1elem.Priority = f9elemf7f8f1elemf0f1iter.Priority
-										}
-										if f9elemf7f8f1elemf0f1iter.Type != nil {
-											f9elemf7f8f1elemf0f1elem.Type = f9elemf7f8f1elemf0f1iter.Type
+										priorityCopy := int64(f9elemf7f8f1elemf0f1iter.Priority)
+										f9elemf7f8f1elemf0f1elem.Priority = &priorityCopy
+										if f9elemf7f8f1elemf0f1iter.Type != "" {
+											f9elemf7f8f1elemf0f1elem.Type = aws.String(string(f9elemf7f8f1elemf0f1iter.Type))
 										}
 										f9elemf7f8f1elemf0f1 = append(f9elemf7f8f1elemf0f1, f9elemf7f8f1elemf0f1elem)
 									}
@@ -1098,11 +996,10 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f8f1elemf3f1 := []*svcapitypes.TextTransformation{}
 									for _, f9elemf7f8f1elemf3f1iter := range f9elemf7f8f1iter.Header.TextTransformations {
 										f9elemf7f8f1elemf3f1elem := &svcapitypes.TextTransformation{}
-										if f9elemf7f8f1elemf3f1iter.Priority != nil {
-											f9elemf7f8f1elemf3f1elem.Priority = f9elemf7f8f1elemf3f1iter.Priority
-										}
-										if f9elemf7f8f1elemf3f1iter.Type != nil {
-											f9elemf7f8f1elemf3f1elem.Type = f9elemf7f8f1elemf3f1iter.Type
+										priorityCopy := int64(f9elemf7f8f1elemf3f1iter.Priority)
+										f9elemf7f8f1elemf3f1elem.Priority = &priorityCopy
+										if f9elemf7f8f1elemf3f1iter.Type != "" {
+											f9elemf7f8f1elemf3f1elem.Type = aws.String(string(f9elemf7f8f1elemf3f1iter.Type))
 										}
 										f9elemf7f8f1elemf3f1 = append(f9elemf7f8f1elemf3f1, f9elemf7f8f1elemf3f1elem)
 									}
@@ -1130,11 +1027,10 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f8f1elemf6f1 := []*svcapitypes.TextTransformation{}
 									for _, f9elemf7f8f1elemf6f1iter := range f9elemf7f8f1iter.QueryArgument.TextTransformations {
 										f9elemf7f8f1elemf6f1elem := &svcapitypes.TextTransformation{}
-										if f9elemf7f8f1elemf6f1iter.Priority != nil {
-											f9elemf7f8f1elemf6f1elem.Priority = f9elemf7f8f1elemf6f1iter.Priority
-										}
-										if f9elemf7f8f1elemf6f1iter.Type != nil {
-											f9elemf7f8f1elemf6f1elem.Type = f9elemf7f8f1elemf6f1iter.Type
+										priorityCopy := int64(f9elemf7f8f1elemf6f1iter.Priority)
+										f9elemf7f8f1elemf6f1elem.Priority = &priorityCopy
+										if f9elemf7f8f1elemf6f1iter.Type != "" {
+											f9elemf7f8f1elemf6f1elem.Type = aws.String(string(f9elemf7f8f1elemf6f1iter.Type))
 										}
 										f9elemf7f8f1elemf6f1 = append(f9elemf7f8f1elemf6f1, f9elemf7f8f1elemf6f1elem)
 									}
@@ -1148,11 +1044,10 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f8f1elemf7f0 := []*svcapitypes.TextTransformation{}
 									for _, f9elemf7f8f1elemf7f0iter := range f9elemf7f8f1iter.QueryString.TextTransformations {
 										f9elemf7f8f1elemf7f0elem := &svcapitypes.TextTransformation{}
-										if f9elemf7f8f1elemf7f0iter.Priority != nil {
-											f9elemf7f8f1elemf7f0elem.Priority = f9elemf7f8f1elemf7f0iter.Priority
-										}
-										if f9elemf7f8f1elemf7f0iter.Type != nil {
-											f9elemf7f8f1elemf7f0elem.Type = f9elemf7f8f1elemf7f0iter.Type
+										priorityCopy := int64(f9elemf7f8f1elemf7f0iter.Priority)
+										f9elemf7f8f1elemf7f0elem.Priority = &priorityCopy
+										if f9elemf7f8f1elemf7f0iter.Type != "" {
+											f9elemf7f8f1elemf7f0elem.Type = aws.String(string(f9elemf7f8f1elemf7f0iter.Type))
 										}
 										f9elemf7f8f1elemf7f0 = append(f9elemf7f8f1elemf7f0, f9elemf7f8f1elemf7f0elem)
 									}
@@ -1166,11 +1061,10 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f8f1elemf8f0 := []*svcapitypes.TextTransformation{}
 									for _, f9elemf7f8f1elemf8f0iter := range f9elemf7f8f1iter.UriPath.TextTransformations {
 										f9elemf7f8f1elemf8f0elem := &svcapitypes.TextTransformation{}
-										if f9elemf7f8f1elemf8f0iter.Priority != nil {
-											f9elemf7f8f1elemf8f0elem.Priority = f9elemf7f8f1elemf8f0iter.Priority
-										}
-										if f9elemf7f8f1elemf8f0iter.Type != nil {
-											f9elemf7f8f1elemf8f0elem.Type = f9elemf7f8f1elemf8f0iter.Type
+										priorityCopy := int64(f9elemf7f8f1elemf8f0iter.Priority)
+										f9elemf7f8f1elemf8f0elem.Priority = &priorityCopy
+										if f9elemf7f8f1elemf8f0iter.Type != "" {
+											f9elemf7f8f1elemf8f0elem.Type = aws.String(string(f9elemf7f8f1elemf8f0iter.Type))
 										}
 										f9elemf7f8f1elemf8f0 = append(f9elemf7f8f1elemf8f0, f9elemf7f8f1elemf8f0elem)
 									}
@@ -1182,13 +1076,11 @@ func (rm *resourceManager) sdkFind(
 						}
 						f9elemf7f8.CustomKeys = f9elemf7f8f1
 					}
-					if f9iter.Statement.RateBasedStatement.EvaluationWindowSec != nil {
-						f9elemf7f8.EvaluationWindowSec = f9iter.Statement.RateBasedStatement.EvaluationWindowSec
-					}
+					f9elemf7f8.EvaluationWindowSec = &f9iter.Statement.RateBasedStatement.EvaluationWindowSec
 					if f9iter.Statement.RateBasedStatement.ForwardedIPConfig != nil {
 						f9elemf7f8f3 := &svcapitypes.ForwardedIPConfig{}
-						if f9iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f9elemf7f8f3.FallbackBehavior = f9iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior
+						if f9iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior != "" {
+							f9elemf7f8f3.FallbackBehavior = aws.String(string(f9iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior))
 						}
 						if f9iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName != nil {
 							f9elemf7f8f3.HeaderName = f9iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName
@@ -1210,8 +1102,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.RegexMatchStatement.FieldToMatch.Body != nil {
 							f9elemf7f9f0f1 := &svcapitypes.Body{}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f9f0f1.OversizeHandling = f9iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f9f0f1.OversizeHandling = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f9f0.Body = f9elemf7f9f0f1
 						}
@@ -1224,37 +1116,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f9f0f2f0.All = f9elemf7f9f0f2f0f0
 								}
 								if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f9f0f2f0f1 := []*string{}
-									for _, f9elemf7f9f0f2f0f1iter := range f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f9f0f2f0f1elem string
-										f9elemf7f9f0f2f0f1elem = *f9elemf7f9f0f2f0f1iter
-										f9elemf7f9f0f2f0f1 = append(f9elemf7f9f0f2f0f1, &f9elemf7f9f0f2f0f1elem)
-									}
-									f9elemf7f9f0f2f0.ExcludedCookies = f9elemf7f9f0f2f0f1
+									f9elemf7f9f0f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f9f0f2f0f2 := []*string{}
-									for _, f9elemf7f9f0f2f0f2iter := range f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f9f0f2f0f2elem string
-										f9elemf7f9f0f2f0f2elem = *f9elemf7f9f0f2f0f2iter
-										f9elemf7f9f0f2f0f2 = append(f9elemf7f9f0f2f0f2, &f9elemf7f9f0f2f0f2elem)
-									}
-									f9elemf7f9f0f2f0.IncludedCookies = f9elemf7f9f0f2f0f2
+									f9elemf7f9f0f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f9f0f2.MatchPattern = f9elemf7f9f0f2f0
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f9f0f2.MatchScope = f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f9f0f2.MatchScope = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f9f0f2.OversizeHandling = f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f9f0f2.OversizeHandling = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f9f0.Cookies = f9elemf7f9f0f2
 						}
 						if f9iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f9f0f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f9f0f3.OversizeHandling = f9iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f9f0f3.OversizeHandling = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f9f0.HeaderOrder = f9elemf7f9f0f3
 						}
@@ -1267,44 +1147,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f9f0f4f0.All = f9elemf7f9f0f4f0f0
 								}
 								if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f9f0f4f0f1 := []*string{}
-									for _, f9elemf7f9f0f4f0f1iter := range f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f9f0f4f0f1elem string
-										f9elemf7f9f0f4f0f1elem = *f9elemf7f9f0f4f0f1iter
-										f9elemf7f9f0f4f0f1 = append(f9elemf7f9f0f4f0f1, &f9elemf7f9f0f4f0f1elem)
-									}
-									f9elemf7f9f0f4f0.ExcludedHeaders = f9elemf7f9f0f4f0f1
+									f9elemf7f9f0f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f9f0f4f0f2 := []*string{}
-									for _, f9elemf7f9f0f4f0f2iter := range f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f9f0f4f0f2elem string
-										f9elemf7f9f0f4f0f2elem = *f9elemf7f9f0f4f0f2iter
-										f9elemf7f9f0f4f0f2 = append(f9elemf7f9f0f4f0f2, &f9elemf7f9f0f4f0f2elem)
-									}
-									f9elemf7f9f0f4f0.IncludedHeaders = f9elemf7f9f0f4f0f2
+									f9elemf7f9f0f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f9f0f4.MatchPattern = f9elemf7f9f0f4f0
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f9f0f4.MatchScope = f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f9f0f4.MatchScope = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f9f0f4.OversizeHandling = f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f9f0f4.OversizeHandling = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f9f0.Headers = f9elemf7f9f0f4
 						}
 						if f9iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f9f0f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f9f0f5.FallbackBehavior = f9iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f9f0f5.FallbackBehavior = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f9f0.JA3Fingerprint = f9elemf7f9f0f5
 						}
 						if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f9f0f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f9f0f6.InvalidFallbackBehavior = f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f9f0f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f9f0f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -1313,21 +1181,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f9f0f6f1.All = f9elemf7f9f0f6f1f0
 								}
 								if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f9f0f6f1f1 := []*string{}
-									for _, f9elemf7f9f0f6f1f1iter := range f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f9f0f6f1f1elem string
-										f9elemf7f9f0f6f1f1elem = *f9elemf7f9f0f6f1f1iter
-										f9elemf7f9f0f6f1f1 = append(f9elemf7f9f0f6f1f1, &f9elemf7f9f0f6f1f1elem)
-									}
-									f9elemf7f9f0f6f1.IncludedPaths = f9elemf7f9f0f6f1f1
+									f9elemf7f9f0f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f9f0f6.MatchPattern = f9elemf7f9f0f6f1
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f9f0f6.MatchScope = f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f9f0f6.MatchScope = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f9f0f6.OversizeHandling = f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f9f0f6.OversizeHandling = aws.String(string(f9iter.Statement.RegexMatchStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f9f0.JSONBody = f9elemf7f9f0f6
 						}
@@ -1366,11 +1228,10 @@ func (rm *resourceManager) sdkFind(
 						f9elemf7f9f2 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f9f2iter := range f9iter.Statement.RegexMatchStatement.TextTransformations {
 							f9elemf7f9f2elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f9f2iter.Priority != nil {
-								f9elemf7f9f2elem.Priority = f9elemf7f9f2iter.Priority
-							}
-							if f9elemf7f9f2iter.Type != nil {
-								f9elemf7f9f2elem.Type = f9elemf7f9f2iter.Type
+							priorityCopy := int64(f9elemf7f9f2iter.Priority)
+							f9elemf7f9f2elem.Priority = &priorityCopy
+							if f9elemf7f9f2iter.Type != "" {
+								f9elemf7f9f2elem.Type = aws.String(string(f9elemf7f9f2iter.Type))
 							}
 							f9elemf7f9f2 = append(f9elemf7f9f2, f9elemf7f9f2elem)
 						}
@@ -1391,8 +1252,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body != nil {
 							f9elemf7f10f1f1 := &svcapitypes.Body{}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f10f1f1.OversizeHandling = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f10f1f1.OversizeHandling = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f10f1.Body = f9elemf7f10f1f1
 						}
@@ -1405,37 +1266,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f10f1f2f0.All = f9elemf7f10f1f2f0f0
 								}
 								if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f10f1f2f0f1 := []*string{}
-									for _, f9elemf7f10f1f2f0f1iter := range f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f10f1f2f0f1elem string
-										f9elemf7f10f1f2f0f1elem = *f9elemf7f10f1f2f0f1iter
-										f9elemf7f10f1f2f0f1 = append(f9elemf7f10f1f2f0f1, &f9elemf7f10f1f2f0f1elem)
-									}
-									f9elemf7f10f1f2f0.ExcludedCookies = f9elemf7f10f1f2f0f1
+									f9elemf7f10f1f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f10f1f2f0f2 := []*string{}
-									for _, f9elemf7f10f1f2f0f2iter := range f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f10f1f2f0f2elem string
-										f9elemf7f10f1f2f0f2elem = *f9elemf7f10f1f2f0f2iter
-										f9elemf7f10f1f2f0f2 = append(f9elemf7f10f1f2f0f2, &f9elemf7f10f1f2f0f2elem)
-									}
-									f9elemf7f10f1f2f0.IncludedCookies = f9elemf7f10f1f2f0f2
+									f9elemf7f10f1f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f10f1f2.MatchPattern = f9elemf7f10f1f2f0
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f10f1f2.MatchScope = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f10f1f2.MatchScope = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f10f1f2.OversizeHandling = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f10f1f2.OversizeHandling = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f10f1.Cookies = f9elemf7f10f1f2
 						}
 						if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f10f1f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f10f1f3.OversizeHandling = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f10f1f3.OversizeHandling = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f10f1.HeaderOrder = f9elemf7f10f1f3
 						}
@@ -1448,44 +1297,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f10f1f4f0.All = f9elemf7f10f1f4f0f0
 								}
 								if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f10f1f4f0f1 := []*string{}
-									for _, f9elemf7f10f1f4f0f1iter := range f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f10f1f4f0f1elem string
-										f9elemf7f10f1f4f0f1elem = *f9elemf7f10f1f4f0f1iter
-										f9elemf7f10f1f4f0f1 = append(f9elemf7f10f1f4f0f1, &f9elemf7f10f1f4f0f1elem)
-									}
-									f9elemf7f10f1f4f0.ExcludedHeaders = f9elemf7f10f1f4f0f1
+									f9elemf7f10f1f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f10f1f4f0f2 := []*string{}
-									for _, f9elemf7f10f1f4f0f2iter := range f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f10f1f4f0f2elem string
-										f9elemf7f10f1f4f0f2elem = *f9elemf7f10f1f4f0f2iter
-										f9elemf7f10f1f4f0f2 = append(f9elemf7f10f1f4f0f2, &f9elemf7f10f1f4f0f2elem)
-									}
-									f9elemf7f10f1f4f0.IncludedHeaders = f9elemf7f10f1f4f0f2
+									f9elemf7f10f1f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f10f1f4.MatchPattern = f9elemf7f10f1f4f0
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f10f1f4.MatchScope = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f10f1f4.MatchScope = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f10f1f4.OversizeHandling = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f10f1f4.OversizeHandling = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f10f1.Headers = f9elemf7f10f1f4
 						}
 						if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f10f1f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f10f1f5.FallbackBehavior = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f10f1f5.FallbackBehavior = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f10f1.JA3Fingerprint = f9elemf7f10f1f5
 						}
 						if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f10f1f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f10f1f6.InvalidFallbackBehavior = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f10f1f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f10f1f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -1494,21 +1331,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f10f1f6f1.All = f9elemf7f10f1f6f1f0
 								}
 								if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f10f1f6f1f1 := []*string{}
-									for _, f9elemf7f10f1f6f1f1iter := range f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f10f1f6f1f1elem string
-										f9elemf7f10f1f6f1f1elem = *f9elemf7f10f1f6f1f1iter
-										f9elemf7f10f1f6f1f1 = append(f9elemf7f10f1f6f1f1, &f9elemf7f10f1f6f1f1elem)
-									}
-									f9elemf7f10f1f6f1.IncludedPaths = f9elemf7f10f1f6f1f1
+									f9elemf7f10f1f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f10f1f6.MatchPattern = f9elemf7f10f1f6f1
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f10f1f6.MatchScope = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f10f1f6.MatchScope = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f10f1f6.OversizeHandling = f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f10f1f6.OversizeHandling = aws.String(string(f9iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f10f1.JSONBody = f9elemf7f10f1f6
 						}
@@ -1544,11 +1375,10 @@ func (rm *resourceManager) sdkFind(
 						f9elemf7f10f2 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f10f2iter := range f9iter.Statement.RegexPatternSetReferenceStatement.TextTransformations {
 							f9elemf7f10f2elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f10f2iter.Priority != nil {
-								f9elemf7f10f2elem.Priority = f9elemf7f10f2iter.Priority
-							}
-							if f9elemf7f10f2iter.Type != nil {
-								f9elemf7f10f2elem.Type = f9elemf7f10f2iter.Type
+							priorityCopy := int64(f9elemf7f10f2iter.Priority)
+							f9elemf7f10f2elem.Priority = &priorityCopy
+							if f9elemf7f10f2iter.Type != "" {
+								f9elemf7f10f2elem.Type = aws.String(string(f9elemf7f10f2iter.Type))
 							}
 							f9elemf7f10f2 = append(f9elemf7f10f2, f9elemf7f10f2elem)
 						}
@@ -1608,7 +1438,8 @@ func (rm *resourceManager) sdkFind(
 											f9elemf7f11f2elemf0f1f0.CustomResponseBodyKey = f9elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f9elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f9elemf7f11f2elemf0f1f0.ResponseCode = f9elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode
+											responseCodeCopy := int64(*f9elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											f9elemf7f11f2elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f9elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
 											f9elemf7f11f2elemf0f1f0f2 := []*svcapitypes.CustomHTTPHeader{}
@@ -1707,8 +1538,8 @@ func (rm *resourceManager) sdkFind(
 				}
 				if f9iter.Statement.SizeConstraintStatement != nil {
 					f9elemf7f12 := &svcapitypes.SizeConstraintStatement{}
-					if f9iter.Statement.SizeConstraintStatement.ComparisonOperator != nil {
-						f9elemf7f12.ComparisonOperator = f9iter.Statement.SizeConstraintStatement.ComparisonOperator
+					if f9iter.Statement.SizeConstraintStatement.ComparisonOperator != "" {
+						f9elemf7f12.ComparisonOperator = aws.String(string(f9iter.Statement.SizeConstraintStatement.ComparisonOperator))
 					}
 					if f9iter.Statement.SizeConstraintStatement.FieldToMatch != nil {
 						f9elemf7f12f1 := &svcapitypes.FieldToMatch{}
@@ -1718,8 +1549,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Body != nil {
 							f9elemf7f12f1f1 := &svcapitypes.Body{}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f12f1f1.OversizeHandling = f9iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f12f1f1.OversizeHandling = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f12f1.Body = f9elemf7f12f1f1
 						}
@@ -1732,37 +1563,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f12f1f2f0.All = f9elemf7f12f1f2f0f0
 								}
 								if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f12f1f2f0f1 := []*string{}
-									for _, f9elemf7f12f1f2f0f1iter := range f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f12f1f2f0f1elem string
-										f9elemf7f12f1f2f0f1elem = *f9elemf7f12f1f2f0f1iter
-										f9elemf7f12f1f2f0f1 = append(f9elemf7f12f1f2f0f1, &f9elemf7f12f1f2f0f1elem)
-									}
-									f9elemf7f12f1f2f0.ExcludedCookies = f9elemf7f12f1f2f0f1
+									f9elemf7f12f1f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f12f1f2f0f2 := []*string{}
-									for _, f9elemf7f12f1f2f0f2iter := range f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f12f1f2f0f2elem string
-										f9elemf7f12f1f2f0f2elem = *f9elemf7f12f1f2f0f2iter
-										f9elemf7f12f1f2f0f2 = append(f9elemf7f12f1f2f0f2, &f9elemf7f12f1f2f0f2elem)
-									}
-									f9elemf7f12f1f2f0.IncludedCookies = f9elemf7f12f1f2f0f2
+									f9elemf7f12f1f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f12f1f2.MatchPattern = f9elemf7f12f1f2f0
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f12f1f2.MatchScope = f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f12f1f2.MatchScope = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f12f1f2.OversizeHandling = f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f12f1f2.OversizeHandling = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f12f1.Cookies = f9elemf7f12f1f2
 						}
 						if f9iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f12f1f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f12f1f3.OversizeHandling = f9iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f12f1f3.OversizeHandling = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f12f1.HeaderOrder = f9elemf7f12f1f3
 						}
@@ -1775,44 +1594,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f12f1f4f0.All = f9elemf7f12f1f4f0f0
 								}
 								if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f12f1f4f0f1 := []*string{}
-									for _, f9elemf7f12f1f4f0f1iter := range f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f12f1f4f0f1elem string
-										f9elemf7f12f1f4f0f1elem = *f9elemf7f12f1f4f0f1iter
-										f9elemf7f12f1f4f0f1 = append(f9elemf7f12f1f4f0f1, &f9elemf7f12f1f4f0f1elem)
-									}
-									f9elemf7f12f1f4f0.ExcludedHeaders = f9elemf7f12f1f4f0f1
+									f9elemf7f12f1f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f12f1f4f0f2 := []*string{}
-									for _, f9elemf7f12f1f4f0f2iter := range f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f12f1f4f0f2elem string
-										f9elemf7f12f1f4f0f2elem = *f9elemf7f12f1f4f0f2iter
-										f9elemf7f12f1f4f0f2 = append(f9elemf7f12f1f4f0f2, &f9elemf7f12f1f4f0f2elem)
-									}
-									f9elemf7f12f1f4f0.IncludedHeaders = f9elemf7f12f1f4f0f2
+									f9elemf7f12f1f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f12f1f4.MatchPattern = f9elemf7f12f1f4f0
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f12f1f4.MatchScope = f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f12f1f4.MatchScope = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f12f1f4.OversizeHandling = f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f12f1f4.OversizeHandling = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f12f1.Headers = f9elemf7f12f1f4
 						}
 						if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f12f1f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f12f1f5.FallbackBehavior = f9iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f12f1f5.FallbackBehavior = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f12f1.JA3Fingerprint = f9elemf7f12f1f5
 						}
 						if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f12f1f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f12f1f6.InvalidFallbackBehavior = f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f12f1f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f12f1f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -1821,21 +1628,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f12f1f6f1.All = f9elemf7f12f1f6f1f0
 								}
 								if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f12f1f6f1f1 := []*string{}
-									for _, f9elemf7f12f1f6f1f1iter := range f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f12f1f6f1f1elem string
-										f9elemf7f12f1f6f1f1elem = *f9elemf7f12f1f6f1f1iter
-										f9elemf7f12f1f6f1f1 = append(f9elemf7f12f1f6f1f1, &f9elemf7f12f1f6f1f1elem)
-									}
-									f9elemf7f12f1f6f1.IncludedPaths = f9elemf7f12f1f6f1f1
+									f9elemf7f12f1f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f12f1f6.MatchPattern = f9elemf7f12f1f6f1
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f12f1f6.MatchScope = f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f12f1f6.MatchScope = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f12f1f6.OversizeHandling = f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f12f1f6.OversizeHandling = aws.String(string(f9iter.Statement.SizeConstraintStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f12f1.JSONBody = f9elemf7f12f1f6
 						}
@@ -1867,18 +1668,15 @@ func (rm *resourceManager) sdkFind(
 						}
 						f9elemf7f12.FieldToMatch = f9elemf7f12f1
 					}
-					if f9iter.Statement.SizeConstraintStatement.Size != nil {
-						f9elemf7f12.Size = f9iter.Statement.SizeConstraintStatement.Size
-					}
+					f9elemf7f12.Size = &f9iter.Statement.SizeConstraintStatement.Size
 					if f9iter.Statement.SizeConstraintStatement.TextTransformations != nil {
 						f9elemf7f12f3 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f12f3iter := range f9iter.Statement.SizeConstraintStatement.TextTransformations {
 							f9elemf7f12f3elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f12f3iter.Priority != nil {
-								f9elemf7f12f3elem.Priority = f9elemf7f12f3iter.Priority
-							}
-							if f9elemf7f12f3iter.Type != nil {
-								f9elemf7f12f3elem.Type = f9elemf7f12f3iter.Type
+							priorityCopy := int64(f9elemf7f12f3iter.Priority)
+							f9elemf7f12f3elem.Priority = &priorityCopy
+							if f9elemf7f12f3iter.Type != "" {
+								f9elemf7f12f3elem.Type = aws.String(string(f9elemf7f12f3iter.Type))
 							}
 							f9elemf7f12f3 = append(f9elemf7f12f3, f9elemf7f12f3elem)
 						}
@@ -1896,8 +1694,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.SqliMatchStatement.FieldToMatch.Body != nil {
 							f9elemf7f13f0f1 := &svcapitypes.Body{}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f13f0f1.OversizeHandling = f9iter.Statement.SqliMatchStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f13f0f1.OversizeHandling = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f13f0.Body = f9elemf7f13f0f1
 						}
@@ -1910,37 +1708,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f13f0f2f0.All = f9elemf7f13f0f2f0f0
 								}
 								if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f13f0f2f0f1 := []*string{}
-									for _, f9elemf7f13f0f2f0f1iter := range f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f13f0f2f0f1elem string
-										f9elemf7f13f0f2f0f1elem = *f9elemf7f13f0f2f0f1iter
-										f9elemf7f13f0f2f0f1 = append(f9elemf7f13f0f2f0f1, &f9elemf7f13f0f2f0f1elem)
-									}
-									f9elemf7f13f0f2f0.ExcludedCookies = f9elemf7f13f0f2f0f1
+									f9elemf7f13f0f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f13f0f2f0f2 := []*string{}
-									for _, f9elemf7f13f0f2f0f2iter := range f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f13f0f2f0f2elem string
-										f9elemf7f13f0f2f0f2elem = *f9elemf7f13f0f2f0f2iter
-										f9elemf7f13f0f2f0f2 = append(f9elemf7f13f0f2f0f2, &f9elemf7f13f0f2f0f2elem)
-									}
-									f9elemf7f13f0f2f0.IncludedCookies = f9elemf7f13f0f2f0f2
+									f9elemf7f13f0f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f13f0f2.MatchPattern = f9elemf7f13f0f2f0
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f13f0f2.MatchScope = f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f13f0f2.MatchScope = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f13f0f2.OversizeHandling = f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f13f0f2.OversizeHandling = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f13f0.Cookies = f9elemf7f13f0f2
 						}
 						if f9iter.Statement.SqliMatchStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f13f0f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f13f0f3.OversizeHandling = f9iter.Statement.SqliMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f13f0f3.OversizeHandling = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f13f0.HeaderOrder = f9elemf7f13f0f3
 						}
@@ -1953,44 +1739,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f13f0f4f0.All = f9elemf7f13f0f4f0f0
 								}
 								if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f13f0f4f0f1 := []*string{}
-									for _, f9elemf7f13f0f4f0f1iter := range f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f13f0f4f0f1elem string
-										f9elemf7f13f0f4f0f1elem = *f9elemf7f13f0f4f0f1iter
-										f9elemf7f13f0f4f0f1 = append(f9elemf7f13f0f4f0f1, &f9elemf7f13f0f4f0f1elem)
-									}
-									f9elemf7f13f0f4f0.ExcludedHeaders = f9elemf7f13f0f4f0f1
+									f9elemf7f13f0f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f13f0f4f0f2 := []*string{}
-									for _, f9elemf7f13f0f4f0f2iter := range f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f13f0f4f0f2elem string
-										f9elemf7f13f0f4f0f2elem = *f9elemf7f13f0f4f0f2iter
-										f9elemf7f13f0f4f0f2 = append(f9elemf7f13f0f4f0f2, &f9elemf7f13f0f4f0f2elem)
-									}
-									f9elemf7f13f0f4f0.IncludedHeaders = f9elemf7f13f0f4f0f2
+									f9elemf7f13f0f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f13f0f4.MatchPattern = f9elemf7f13f0f4f0
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f13f0f4.MatchScope = f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f13f0f4.MatchScope = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f13f0f4.OversizeHandling = f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f13f0f4.OversizeHandling = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f13f0.Headers = f9elemf7f13f0f4
 						}
 						if f9iter.Statement.SqliMatchStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f13f0f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f13f0f5.FallbackBehavior = f9iter.Statement.SqliMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f13f0f5.FallbackBehavior = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f13f0.JA3Fingerprint = f9elemf7f13f0f5
 						}
 						if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f13f0f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f13f0f6.InvalidFallbackBehavior = f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f13f0f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f13f0f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -1999,21 +1773,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f13f0f6f1.All = f9elemf7f13f0f6f1f0
 								}
 								if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f13f0f6f1f1 := []*string{}
-									for _, f9elemf7f13f0f6f1f1iter := range f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f13f0f6f1f1elem string
-										f9elemf7f13f0f6f1f1elem = *f9elemf7f13f0f6f1f1iter
-										f9elemf7f13f0f6f1f1 = append(f9elemf7f13f0f6f1f1, &f9elemf7f13f0f6f1f1elem)
-									}
-									f9elemf7f13f0f6f1.IncludedPaths = f9elemf7f13f0f6f1f1
+									f9elemf7f13f0f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f13f0f6.MatchPattern = f9elemf7f13f0f6f1
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f13f0f6.MatchScope = f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f13f0f6.MatchScope = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f13f0f6.OversizeHandling = f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f13f0f6.OversizeHandling = aws.String(string(f9iter.Statement.SqliMatchStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f13f0.JSONBody = f9elemf7f13f0f6
 						}
@@ -2045,18 +1813,17 @@ func (rm *resourceManager) sdkFind(
 						}
 						f9elemf7f13.FieldToMatch = f9elemf7f13f0
 					}
-					if f9iter.Statement.SqliMatchStatement.SensitivityLevel != nil {
-						f9elemf7f13.SensitivityLevel = f9iter.Statement.SqliMatchStatement.SensitivityLevel
+					if f9iter.Statement.SqliMatchStatement.SensitivityLevel != "" {
+						f9elemf7f13.SensitivityLevel = aws.String(string(f9iter.Statement.SqliMatchStatement.SensitivityLevel))
 					}
 					if f9iter.Statement.SqliMatchStatement.TextTransformations != nil {
 						f9elemf7f13f2 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f13f2iter := range f9iter.Statement.SqliMatchStatement.TextTransformations {
 							f9elemf7f13f2elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f13f2iter.Priority != nil {
-								f9elemf7f13f2elem.Priority = f9elemf7f13f2iter.Priority
-							}
-							if f9elemf7f13f2iter.Type != nil {
-								f9elemf7f13f2elem.Type = f9elemf7f13f2iter.Type
+							priorityCopy := int64(f9elemf7f13f2iter.Priority)
+							f9elemf7f13f2elem.Priority = &priorityCopy
+							if f9elemf7f13f2iter.Type != "" {
+								f9elemf7f13f2elem.Type = aws.String(string(f9elemf7f13f2iter.Type))
 							}
 							f9elemf7f13f2 = append(f9elemf7f13f2, f9elemf7f13f2elem)
 						}
@@ -2074,8 +1841,8 @@ func (rm *resourceManager) sdkFind(
 						}
 						if f9iter.Statement.XssMatchStatement.FieldToMatch.Body != nil {
 							f9elemf7f14f0f1 := &svcapitypes.Body{}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f9elemf7f14f0f1.OversizeHandling = f9iter.Statement.XssMatchStatement.FieldToMatch.Body.OversizeHandling
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.Body.OversizeHandling != "" {
+								f9elemf7f14f0f1.OversizeHandling = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.Body.OversizeHandling))
 							}
 							f9elemf7f14f0.Body = f9elemf7f14f0f1
 						}
@@ -2088,37 +1855,25 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f14f0f2f0.All = f9elemf7f14f0f2f0f0
 								}
 								if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f9elemf7f14f0f2f0f1 := []*string{}
-									for _, f9elemf7f14f0f2f0f1iter := range f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f9elemf7f14f0f2f0f1elem string
-										f9elemf7f14f0f2f0f1elem = *f9elemf7f14f0f2f0f1iter
-										f9elemf7f14f0f2f0f1 = append(f9elemf7f14f0f2f0f1, &f9elemf7f14f0f2f0f1elem)
-									}
-									f9elemf7f14f0f2f0.ExcludedCookies = f9elemf7f14f0f2f0f1
+									f9elemf7f14f0f2f0.ExcludedCookies = aws.StringSlice(f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f9elemf7f14f0f2f0f2 := []*string{}
-									for _, f9elemf7f14f0f2f0f2iter := range f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f9elemf7f14f0f2f0f2elem string
-										f9elemf7f14f0f2f0f2elem = *f9elemf7f14f0f2f0f2iter
-										f9elemf7f14f0f2f0f2 = append(f9elemf7f14f0f2f0f2, &f9elemf7f14f0f2f0f2elem)
-									}
-									f9elemf7f14f0f2f0.IncludedCookies = f9elemf7f14f0f2f0f2
+									f9elemf7f14f0f2f0.IncludedCookies = aws.StringSlice(f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
 								f9elemf7f14f0f2.MatchPattern = f9elemf7f14f0f2f0
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f9elemf7f14f0f2.MatchScope = f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchScope
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchScope != "" {
+								f9elemf7f14f0f2.MatchScope = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.MatchScope))
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f9elemf7f14f0f2.OversizeHandling = f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.OversizeHandling
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.OversizeHandling != "" {
+								f9elemf7f14f0f2.OversizeHandling = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.Cookies.OversizeHandling))
 							}
 							f9elemf7f14f0.Cookies = f9elemf7f14f0f2
 						}
 						if f9iter.Statement.XssMatchStatement.FieldToMatch.HeaderOrder != nil {
 							f9elemf7f14f0f3 := &svcapitypes.HeaderOrder{}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f9elemf7f14f0f3.OversizeHandling = f9iter.Statement.XssMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != "" {
+								f9elemf7f14f0f3.OversizeHandling = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling))
 							}
 							f9elemf7f14f0.HeaderOrder = f9elemf7f14f0f3
 						}
@@ -2131,44 +1886,32 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f14f0f4f0.All = f9elemf7f14f0f4f0f0
 								}
 								if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f9elemf7f14f0f4f0f1 := []*string{}
-									for _, f9elemf7f14f0f4f0f1iter := range f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f9elemf7f14f0f4f0f1elem string
-										f9elemf7f14f0f4f0f1elem = *f9elemf7f14f0f4f0f1iter
-										f9elemf7f14f0f4f0f1 = append(f9elemf7f14f0f4f0f1, &f9elemf7f14f0f4f0f1elem)
-									}
-									f9elemf7f14f0f4f0.ExcludedHeaders = f9elemf7f14f0f4f0f1
+									f9elemf7f14f0f4f0.ExcludedHeaders = aws.StringSlice(f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f9elemf7f14f0f4f0f2 := []*string{}
-									for _, f9elemf7f14f0f4f0f2iter := range f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f9elemf7f14f0f4f0f2elem string
-										f9elemf7f14f0f4f0f2elem = *f9elemf7f14f0f4f0f2iter
-										f9elemf7f14f0f4f0f2 = append(f9elemf7f14f0f4f0f2, &f9elemf7f14f0f4f0f2elem)
-									}
-									f9elemf7f14f0f4f0.IncludedHeaders = f9elemf7f14f0f4f0f2
+									f9elemf7f14f0f4f0.IncludedHeaders = aws.StringSlice(f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
 								f9elemf7f14f0f4.MatchPattern = f9elemf7f14f0f4f0
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f9elemf7f14f0f4.MatchScope = f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchScope
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchScope != "" {
+								f9elemf7f14f0f4.MatchScope = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.MatchScope))
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f9elemf7f14f0f4.OversizeHandling = f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.OversizeHandling
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.OversizeHandling != "" {
+								f9elemf7f14f0f4.OversizeHandling = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.Headers.OversizeHandling))
 							}
 							f9elemf7f14f0.Headers = f9elemf7f14f0f4
 						}
 						if f9iter.Statement.XssMatchStatement.FieldToMatch.JA3Fingerprint != nil {
 							f9elemf7f14f0f5 := &svcapitypes.JA3Fingerprint{}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f9elemf7f14f0f5.FallbackBehavior = f9iter.Statement.XssMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != "" {
+								f9elemf7f14f0f5.FallbackBehavior = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior))
 							}
 							f9elemf7f14f0.JA3Fingerprint = f9elemf7f14f0f5
 						}
 						if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody != nil {
 							f9elemf7f14f0f6 := &svcapitypes.JSONBody{}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != nil {
-								f9elemf7f14f0f6.InvalidFallbackBehavior = f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior != "" {
+								f9elemf7f14f0f6.InvalidFallbackBehavior = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.InvalidFallbackBehavior))
 							}
 							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchPattern != nil {
 								f9elemf7f14f0f6f1 := &svcapitypes.JSONMatchPattern{}
@@ -2177,21 +1920,15 @@ func (rm *resourceManager) sdkFind(
 									f9elemf7f14f0f6f1.All = f9elemf7f14f0f6f1f0
 								}
 								if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths != nil {
-									f9elemf7f14f0f6f1f1 := []*string{}
-									for _, f9elemf7f14f0f6f1f1iter := range f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths {
-										var f9elemf7f14f0f6f1f1elem string
-										f9elemf7f14f0f6f1f1elem = *f9elemf7f14f0f6f1f1iter
-										f9elemf7f14f0f6f1f1 = append(f9elemf7f14f0f6f1f1, &f9elemf7f14f0f6f1f1elem)
-									}
-									f9elemf7f14f0f6f1.IncludedPaths = f9elemf7f14f0f6f1f1
+									f9elemf7f14f0f6f1.IncludedPaths = aws.StringSlice(f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchPattern.IncludedPaths)
 								}
 								f9elemf7f14f0f6.MatchPattern = f9elemf7f14f0f6f1
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchScope != nil {
-								f9elemf7f14f0f6.MatchScope = f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchScope
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchScope != "" {
+								f9elemf7f14f0f6.MatchScope = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.MatchScope))
 							}
-							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.OversizeHandling != nil {
-								f9elemf7f14f0f6.OversizeHandling = f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.OversizeHandling
+							if f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.OversizeHandling != "" {
+								f9elemf7f14f0f6.OversizeHandling = aws.String(string(f9iter.Statement.XssMatchStatement.FieldToMatch.JsonBody.OversizeHandling))
 							}
 							f9elemf7f14f0.JSONBody = f9elemf7f14f0f6
 						}
@@ -2227,11 +1964,10 @@ func (rm *resourceManager) sdkFind(
 						f9elemf7f14f1 := []*svcapitypes.TextTransformation{}
 						for _, f9elemf7f14f1iter := range f9iter.Statement.XssMatchStatement.TextTransformations {
 							f9elemf7f14f1elem := &svcapitypes.TextTransformation{}
-							if f9elemf7f14f1iter.Priority != nil {
-								f9elemf7f14f1elem.Priority = f9elemf7f14f1iter.Priority
-							}
-							if f9elemf7f14f1iter.Type != nil {
-								f9elemf7f14f1elem.Type = f9elemf7f14f1iter.Type
+							priorityCopy := int64(f9elemf7f14f1iter.Priority)
+							f9elemf7f14f1elem.Priority = &priorityCopy
+							if f9elemf7f14f1iter.Type != "" {
+								f9elemf7f14f1elem.Type = aws.String(string(f9elemf7f14f1iter.Type))
 							}
 							f9elemf7f14f1 = append(f9elemf7f14f1, f9elemf7f14f1elem)
 						}
@@ -2243,15 +1979,11 @@ func (rm *resourceManager) sdkFind(
 			}
 			if f9iter.VisibilityConfig != nil {
 				f9elemf8 := &svcapitypes.VisibilityConfig{}
-				if f9iter.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-					f9elemf8.CloudWatchMetricsEnabled = f9iter.VisibilityConfig.CloudWatchMetricsEnabled
-				}
+				f9elemf8.CloudWatchMetricsEnabled = &f9iter.VisibilityConfig.CloudWatchMetricsEnabled
 				if f9iter.VisibilityConfig.MetricName != nil {
 					f9elemf8.MetricName = f9iter.VisibilityConfig.MetricName
 				}
-				if f9iter.VisibilityConfig.SampledRequestsEnabled != nil {
-					f9elemf8.SampledRequestsEnabled = f9iter.VisibilityConfig.SampledRequestsEnabled
-				}
+				f9elemf8.SampledRequestsEnabled = &f9iter.VisibilityConfig.SampledRequestsEnabled
 				f9elem.VisibilityConfig = f9elemf8
 			}
 			f9 = append(f9, f9elem)
@@ -2262,15 +1994,11 @@ func (rm *resourceManager) sdkFind(
 	}
 	if resp.RuleGroup.VisibilityConfig != nil {
 		f10 := &svcapitypes.VisibilityConfig{}
-		if resp.RuleGroup.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-			f10.CloudWatchMetricsEnabled = resp.RuleGroup.VisibilityConfig.CloudWatchMetricsEnabled
-		}
+		f10.CloudWatchMetricsEnabled = &resp.RuleGroup.VisibilityConfig.CloudWatchMetricsEnabled
 		if resp.RuleGroup.VisibilityConfig.MetricName != nil {
 			f10.MetricName = resp.RuleGroup.VisibilityConfig.MetricName
 		}
-		if resp.RuleGroup.VisibilityConfig.SampledRequestsEnabled != nil {
-			f10.SampledRequestsEnabled = resp.RuleGroup.VisibilityConfig.SampledRequestsEnabled
-		}
+		f10.SampledRequestsEnabled = &resp.RuleGroup.VisibilityConfig.SampledRequestsEnabled
 		ko.Spec.VisibilityConfig = f10
 	} else {
 		ko.Spec.VisibilityConfig = nil
@@ -2303,16 +2031,16 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.GetRuleGroupInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetARN(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.ARN = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 
 	return res, nil
@@ -2340,7 +2068,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateRuleGroup", err)
 	if err != nil {
 		return nil, err
@@ -2390,2176 +2118,2019 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateRuleGroupInput{}
 
 	if r.ko.Spec.Capacity != nil {
-		res.SetCapacity(*r.ko.Spec.Capacity)
+		res.Capacity = r.ko.Spec.Capacity
 	}
 	if r.ko.Spec.CustomResponseBodies != nil {
-		f1 := map[string]*svcsdk.CustomResponseBody{}
+		f1 := map[string]svcsdktypes.CustomResponseBody{}
 		for f1key, f1valiter := range r.ko.Spec.CustomResponseBodies {
-			f1val := &svcsdk.CustomResponseBody{}
+			f1val := &svcsdktypes.CustomResponseBody{}
 			if f1valiter.Content != nil {
-				f1val.SetContent(*f1valiter.Content)
+				f1val.Content = f1valiter.Content
 			}
 			if f1valiter.ContentType != nil {
-				f1val.SetContentType(*f1valiter.ContentType)
+				f1val.ContentType = svcsdktypes.ResponseContentType(*f1valiter.ContentType)
 			}
-			f1[f1key] = f1val
+			f1[f1key] = *f1val
 		}
-		res.SetCustomResponseBodies(f1)
+		res.CustomResponseBodies = f1
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Rules != nil {
-		f4 := []*svcsdk.Rule{}
+		f4 := []svcsdktypes.Rule{}
 		for _, f4iter := range r.ko.Spec.Rules {
-			f4elem := &svcsdk.Rule{}
+			f4elem := &svcsdktypes.Rule{}
 			if f4iter.Action != nil {
-				f4elemf0 := &svcsdk.RuleAction{}
+				f4elemf0 := &svcsdktypes.RuleAction{}
 				if f4iter.Action.Allow != nil {
-					f4elemf0f0 := &svcsdk.AllowAction{}
+					f4elemf0f0 := &svcsdktypes.AllowAction{}
 					if f4iter.Action.Allow.CustomRequestHandling != nil {
-						f4elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+						f4elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 						if f4iter.Action.Allow.CustomRequestHandling.InsertHeaders != nil {
-							f4elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf0f0f0f0iter := range f4iter.Action.Allow.CustomRequestHandling.InsertHeaders {
-								f4elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf0f0f0f0iter.Name != nil {
-									f4elemf0f0f0f0elem.SetName(*f4elemf0f0f0f0iter.Name)
+									f4elemf0f0f0f0elem.Name = f4elemf0f0f0f0iter.Name
 								}
 								if f4elemf0f0f0f0iter.Value != nil {
-									f4elemf0f0f0f0elem.SetValue(*f4elemf0f0f0f0iter.Value)
+									f4elemf0f0f0f0elem.Value = f4elemf0f0f0f0iter.Value
 								}
-								f4elemf0f0f0f0 = append(f4elemf0f0f0f0, f4elemf0f0f0f0elem)
+								f4elemf0f0f0f0 = append(f4elemf0f0f0f0, *f4elemf0f0f0f0elem)
 							}
-							f4elemf0f0f0.SetInsertHeaders(f4elemf0f0f0f0)
+							f4elemf0f0f0.InsertHeaders = f4elemf0f0f0f0
 						}
-						f4elemf0f0.SetCustomRequestHandling(f4elemf0f0f0)
+						f4elemf0f0.CustomRequestHandling = f4elemf0f0f0
 					}
-					f4elemf0.SetAllow(f4elemf0f0)
+					f4elemf0.Allow = f4elemf0f0
 				}
 				if f4iter.Action.Block != nil {
-					f4elemf0f1 := &svcsdk.BlockAction{}
+					f4elemf0f1 := &svcsdktypes.BlockAction{}
 					if f4iter.Action.Block.CustomResponse != nil {
-						f4elemf0f1f0 := &svcsdk.CustomResponse{}
+						f4elemf0f1f0 := &svcsdktypes.CustomResponse{}
 						if f4iter.Action.Block.CustomResponse.CustomResponseBodyKey != nil {
-							f4elemf0f1f0.SetCustomResponseBodyKey(*f4iter.Action.Block.CustomResponse.CustomResponseBodyKey)
+							f4elemf0f1f0.CustomResponseBodyKey = f4iter.Action.Block.CustomResponse.CustomResponseBodyKey
 						}
 						if f4iter.Action.Block.CustomResponse.ResponseCode != nil {
-							f4elemf0f1f0.SetResponseCode(*f4iter.Action.Block.CustomResponse.ResponseCode)
+							responseCodeCopy0 := *f4iter.Action.Block.CustomResponse.ResponseCode
+							if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+							}
+							responseCodeCopy := int32(responseCodeCopy0)
+							f4elemf0f1f0.ResponseCode = &responseCodeCopy
 						}
 						if f4iter.Action.Block.CustomResponse.ResponseHeaders != nil {
-							f4elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf0f1f0f2iter := range f4iter.Action.Block.CustomResponse.ResponseHeaders {
-								f4elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf0f1f0f2iter.Name != nil {
-									f4elemf0f1f0f2elem.SetName(*f4elemf0f1f0f2iter.Name)
+									f4elemf0f1f0f2elem.Name = f4elemf0f1f0f2iter.Name
 								}
 								if f4elemf0f1f0f2iter.Value != nil {
-									f4elemf0f1f0f2elem.SetValue(*f4elemf0f1f0f2iter.Value)
+									f4elemf0f1f0f2elem.Value = f4elemf0f1f0f2iter.Value
 								}
-								f4elemf0f1f0f2 = append(f4elemf0f1f0f2, f4elemf0f1f0f2elem)
+								f4elemf0f1f0f2 = append(f4elemf0f1f0f2, *f4elemf0f1f0f2elem)
 							}
-							f4elemf0f1f0.SetResponseHeaders(f4elemf0f1f0f2)
+							f4elemf0f1f0.ResponseHeaders = f4elemf0f1f0f2
 						}
-						f4elemf0f1.SetCustomResponse(f4elemf0f1f0)
+						f4elemf0f1.CustomResponse = f4elemf0f1f0
 					}
-					f4elemf0.SetBlock(f4elemf0f1)
+					f4elemf0.Block = f4elemf0f1
 				}
 				if f4iter.Action.Captcha != nil {
-					f4elemf0f2 := &svcsdk.CaptchaAction{}
+					f4elemf0f2 := &svcsdktypes.CaptchaAction{}
 					if f4iter.Action.Captcha.CustomRequestHandling != nil {
-						f4elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+						f4elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 						if f4iter.Action.Captcha.CustomRequestHandling.InsertHeaders != nil {
-							f4elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf0f2f0f0iter := range f4iter.Action.Captcha.CustomRequestHandling.InsertHeaders {
-								f4elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf0f2f0f0iter.Name != nil {
-									f4elemf0f2f0f0elem.SetName(*f4elemf0f2f0f0iter.Name)
+									f4elemf0f2f0f0elem.Name = f4elemf0f2f0f0iter.Name
 								}
 								if f4elemf0f2f0f0iter.Value != nil {
-									f4elemf0f2f0f0elem.SetValue(*f4elemf0f2f0f0iter.Value)
+									f4elemf0f2f0f0elem.Value = f4elemf0f2f0f0iter.Value
 								}
-								f4elemf0f2f0f0 = append(f4elemf0f2f0f0, f4elemf0f2f0f0elem)
+								f4elemf0f2f0f0 = append(f4elemf0f2f0f0, *f4elemf0f2f0f0elem)
 							}
-							f4elemf0f2f0.SetInsertHeaders(f4elemf0f2f0f0)
+							f4elemf0f2f0.InsertHeaders = f4elemf0f2f0f0
 						}
-						f4elemf0f2.SetCustomRequestHandling(f4elemf0f2f0)
+						f4elemf0f2.CustomRequestHandling = f4elemf0f2f0
 					}
-					f4elemf0.SetCaptcha(f4elemf0f2)
+					f4elemf0.Captcha = f4elemf0f2
 				}
 				if f4iter.Action.Challenge != nil {
-					f4elemf0f3 := &svcsdk.ChallengeAction{}
+					f4elemf0f3 := &svcsdktypes.ChallengeAction{}
 					if f4iter.Action.Challenge.CustomRequestHandling != nil {
-						f4elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+						f4elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 						if f4iter.Action.Challenge.CustomRequestHandling.InsertHeaders != nil {
-							f4elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf0f3f0f0iter := range f4iter.Action.Challenge.CustomRequestHandling.InsertHeaders {
-								f4elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf0f3f0f0iter.Name != nil {
-									f4elemf0f3f0f0elem.SetName(*f4elemf0f3f0f0iter.Name)
+									f4elemf0f3f0f0elem.Name = f4elemf0f3f0f0iter.Name
 								}
 								if f4elemf0f3f0f0iter.Value != nil {
-									f4elemf0f3f0f0elem.SetValue(*f4elemf0f3f0f0iter.Value)
+									f4elemf0f3f0f0elem.Value = f4elemf0f3f0f0iter.Value
 								}
-								f4elemf0f3f0f0 = append(f4elemf0f3f0f0, f4elemf0f3f0f0elem)
+								f4elemf0f3f0f0 = append(f4elemf0f3f0f0, *f4elemf0f3f0f0elem)
 							}
-							f4elemf0f3f0.SetInsertHeaders(f4elemf0f3f0f0)
+							f4elemf0f3f0.InsertHeaders = f4elemf0f3f0f0
 						}
-						f4elemf0f3.SetCustomRequestHandling(f4elemf0f3f0)
+						f4elemf0f3.CustomRequestHandling = f4elemf0f3f0
 					}
-					f4elemf0.SetChallenge(f4elemf0f3)
+					f4elemf0.Challenge = f4elemf0f3
 				}
 				if f4iter.Action.Count != nil {
-					f4elemf0f4 := &svcsdk.CountAction{}
+					f4elemf0f4 := &svcsdktypes.CountAction{}
 					if f4iter.Action.Count.CustomRequestHandling != nil {
-						f4elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+						f4elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 						if f4iter.Action.Count.CustomRequestHandling.InsertHeaders != nil {
-							f4elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf0f4f0f0iter := range f4iter.Action.Count.CustomRequestHandling.InsertHeaders {
-								f4elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf0f4f0f0iter.Name != nil {
-									f4elemf0f4f0f0elem.SetName(*f4elemf0f4f0f0iter.Name)
+									f4elemf0f4f0f0elem.Name = f4elemf0f4f0f0iter.Name
 								}
 								if f4elemf0f4f0f0iter.Value != nil {
-									f4elemf0f4f0f0elem.SetValue(*f4elemf0f4f0f0iter.Value)
+									f4elemf0f4f0f0elem.Value = f4elemf0f4f0f0iter.Value
 								}
-								f4elemf0f4f0f0 = append(f4elemf0f4f0f0, f4elemf0f4f0f0elem)
+								f4elemf0f4f0f0 = append(f4elemf0f4f0f0, *f4elemf0f4f0f0elem)
 							}
-							f4elemf0f4f0.SetInsertHeaders(f4elemf0f4f0f0)
+							f4elemf0f4f0.InsertHeaders = f4elemf0f4f0f0
 						}
-						f4elemf0f4.SetCustomRequestHandling(f4elemf0f4f0)
+						f4elemf0f4.CustomRequestHandling = f4elemf0f4f0
 					}
-					f4elemf0.SetCount(f4elemf0f4)
+					f4elemf0.Count = f4elemf0f4
 				}
-				f4elem.SetAction(f4elemf0)
+				f4elem.Action = f4elemf0
 			}
 			if f4iter.CaptchaConfig != nil {
-				f4elemf1 := &svcsdk.CaptchaConfig{}
+				f4elemf1 := &svcsdktypes.CaptchaConfig{}
 				if f4iter.CaptchaConfig.ImmunityTimeProperty != nil {
-					f4elemf1f0 := &svcsdk.ImmunityTimeProperty{}
+					f4elemf1f0 := &svcsdktypes.ImmunityTimeProperty{}
 					if f4iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime != nil {
-						f4elemf1f0.SetImmunityTime(*f4iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime)
+						f4elemf1f0.ImmunityTime = f4iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime
 					}
-					f4elemf1.SetImmunityTimeProperty(f4elemf1f0)
+					f4elemf1.ImmunityTimeProperty = f4elemf1f0
 				}
-				f4elem.SetCaptchaConfig(f4elemf1)
+				f4elem.CaptchaConfig = f4elemf1
 			}
 			if f4iter.ChallengeConfig != nil {
-				f4elemf2 := &svcsdk.ChallengeConfig{}
+				f4elemf2 := &svcsdktypes.ChallengeConfig{}
 				if f4iter.ChallengeConfig.ImmunityTimeProperty != nil {
-					f4elemf2f0 := &svcsdk.ImmunityTimeProperty{}
+					f4elemf2f0 := &svcsdktypes.ImmunityTimeProperty{}
 					if f4iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime != nil {
-						f4elemf2f0.SetImmunityTime(*f4iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime)
+						f4elemf2f0.ImmunityTime = f4iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime
 					}
-					f4elemf2.SetImmunityTimeProperty(f4elemf2f0)
+					f4elemf2.ImmunityTimeProperty = f4elemf2f0
 				}
-				f4elem.SetChallengeConfig(f4elemf2)
+				f4elem.ChallengeConfig = f4elemf2
 			}
 			if f4iter.Name != nil {
-				f4elem.SetName(*f4iter.Name)
+				f4elem.Name = f4iter.Name
 			}
 			if f4iter.OverrideAction != nil {
-				f4elemf4 := &svcsdk.OverrideAction{}
+				f4elemf4 := &svcsdktypes.OverrideAction{}
 				if f4iter.OverrideAction.Count != nil {
-					f4elemf4f0 := &svcsdk.CountAction{}
+					f4elemf4f0 := &svcsdktypes.CountAction{}
 					if f4iter.OverrideAction.Count.CustomRequestHandling != nil {
-						f4elemf4f0f0 := &svcsdk.CustomRequestHandling{}
+						f4elemf4f0f0 := &svcsdktypes.CustomRequestHandling{}
 						if f4iter.OverrideAction.Count.CustomRequestHandling.InsertHeaders != nil {
-							f4elemf4f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f4elemf4f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f4elemf4f0f0f0iter := range f4iter.OverrideAction.Count.CustomRequestHandling.InsertHeaders {
-								f4elemf4f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f4elemf4f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f4elemf4f0f0f0iter.Name != nil {
-									f4elemf4f0f0f0elem.SetName(*f4elemf4f0f0f0iter.Name)
+									f4elemf4f0f0f0elem.Name = f4elemf4f0f0f0iter.Name
 								}
 								if f4elemf4f0f0f0iter.Value != nil {
-									f4elemf4f0f0f0elem.SetValue(*f4elemf4f0f0f0iter.Value)
+									f4elemf4f0f0f0elem.Value = f4elemf4f0f0f0iter.Value
 								}
-								f4elemf4f0f0f0 = append(f4elemf4f0f0f0, f4elemf4f0f0f0elem)
+								f4elemf4f0f0f0 = append(f4elemf4f0f0f0, *f4elemf4f0f0f0elem)
 							}
-							f4elemf4f0f0.SetInsertHeaders(f4elemf4f0f0f0)
+							f4elemf4f0f0.InsertHeaders = f4elemf4f0f0f0
 						}
-						f4elemf4f0.SetCustomRequestHandling(f4elemf4f0f0)
+						f4elemf4f0.CustomRequestHandling = f4elemf4f0f0
 					}
-					f4elemf4.SetCount(f4elemf4f0)
+					f4elemf4.Count = f4elemf4f0
 				}
 				if f4iter.OverrideAction.None != nil {
-					f4elemf4f1 := &svcsdk.NoneAction{}
-					f4elemf4.SetNone(f4elemf4f1)
+					f4elemf4f1 := &svcsdktypes.NoneAction{}
+					f4elemf4.None = f4elemf4f1
 				}
-				f4elem.SetOverrideAction(f4elemf4)
+				f4elem.OverrideAction = f4elemf4
 			}
 			if f4iter.Priority != nil {
-				f4elem.SetPriority(*f4iter.Priority)
+				priorityCopy0 := *f4iter.Priority
+				if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+					return nil, fmt.Errorf("error: field Priority is of type int32")
+				}
+				priorityCopy := int32(priorityCopy0)
+				f4elem.Priority = priorityCopy
 			}
 			if f4iter.RuleLabels != nil {
-				f4elemf6 := []*svcsdk.Label{}
+				f4elemf6 := []svcsdktypes.Label{}
 				for _, f4elemf6iter := range f4iter.RuleLabels {
-					f4elemf6elem := &svcsdk.Label{}
+					f4elemf6elem := &svcsdktypes.Label{}
 					if f4elemf6iter.Name != nil {
-						f4elemf6elem.SetName(*f4elemf6iter.Name)
+						f4elemf6elem.Name = f4elemf6iter.Name
 					}
-					f4elemf6 = append(f4elemf6, f4elemf6elem)
+					f4elemf6 = append(f4elemf6, *f4elemf6elem)
 				}
-				f4elem.SetRuleLabels(f4elemf6)
+				f4elem.RuleLabels = f4elemf6
 			}
 			if f4iter.Statement != nil {
-				f4elemf7 := &svcsdk.Statement{}
+				f4elemf7 := &svcsdktypes.Statement{}
 				if f4iter.Statement.ByteMatchStatement != nil {
-					f4elemf7f1 := &svcsdk.ByteMatchStatement{}
+					f4elemf7f1 := &svcsdktypes.ByteMatchStatement{}
 					if f4iter.Statement.ByteMatchStatement.FieldToMatch != nil {
-						f4elemf7f1f0 := &svcsdk.FieldToMatch{}
+						f4elemf7f1f0 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f1f0f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f1f0.SetAllQueryArguments(f4elemf7f1f0f0)
+							f4elemf7f1f0f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f1f0.AllQueryArguments = f4elemf7f1f0f0
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.Body != nil {
-							f4elemf7f1f0f1 := &svcsdk.Body{}
+							f4elemf7f1f0f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f1f0f1.SetOversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f1f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f1f0.SetBody(f4elemf7f1f0f1)
+							f4elemf7f1f0.Body = f4elemf7f1f0f1
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f1f0f2 := &svcsdk.Cookies{}
+							f4elemf7f1f0f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f1f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f1f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f1f0f2f0f0 := &svcsdk.All{}
-									f4elemf7f1f0f2f0.SetAll(f4elemf7f1f0f2f0f0)
+									f4elemf7f1f0f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f1f0f2f0.All = f4elemf7f1f0f2f0f0
 								}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f1f0f2f0f1 := []*string{}
-									for _, f4elemf7f1f0f2f0f1iter := range f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f1f0f2f0f1elem string
-										f4elemf7f1f0f2f0f1elem = *f4elemf7f1f0f2f0f1iter
-										f4elemf7f1f0f2f0f1 = append(f4elemf7f1f0f2f0f1, &f4elemf7f1f0f2f0f1elem)
-									}
-									f4elemf7f1f0f2f0.SetExcludedCookies(f4elemf7f1f0f2f0f1)
+									f4elemf7f1f0f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f1f0f2f0f2 := []*string{}
-									for _, f4elemf7f1f0f2f0f2iter := range f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f1f0f2f0f2elem string
-										f4elemf7f1f0f2f0f2elem = *f4elemf7f1f0f2f0f2iter
-										f4elemf7f1f0f2f0f2 = append(f4elemf7f1f0f2f0f2, &f4elemf7f1f0f2f0f2elem)
-									}
-									f4elemf7f1f0f2f0.SetIncludedCookies(f4elemf7f1f0f2f0f2)
+									f4elemf7f1f0f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f1f0f2.SetMatchPattern(f4elemf7f1f0f2f0)
+								f4elemf7f1f0f2.MatchPattern = f4elemf7f1f0f2f0
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f1f0f2.SetMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f1f0f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f1f0f2.SetOversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f1f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f1f0.SetCookies(f4elemf7f1f0f2)
+							f4elemf7f1f0.Cookies = f4elemf7f1f0f2
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f1f0f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f1f0f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f1f0f3.SetOversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f1f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f1f0.SetHeaderOrder(f4elemf7f1f0f3)
+							f4elemf7f1f0.HeaderOrder = f4elemf7f1f0f3
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers != nil {
-							f4elemf7f1f0f4 := &svcsdk.Headers{}
+							f4elemf7f1f0f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f1f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f1f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f1f0f4f0f0 := &svcsdk.All{}
-									f4elemf7f1f0f4f0.SetAll(f4elemf7f1f0f4f0f0)
+									f4elemf7f1f0f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f1f0f4f0.All = f4elemf7f1f0f4f0f0
 								}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f1f0f4f0f1 := []*string{}
-									for _, f4elemf7f1f0f4f0f1iter := range f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f1f0f4f0f1elem string
-										f4elemf7f1f0f4f0f1elem = *f4elemf7f1f0f4f0f1iter
-										f4elemf7f1f0f4f0f1 = append(f4elemf7f1f0f4f0f1, &f4elemf7f1f0f4f0f1elem)
-									}
-									f4elemf7f1f0f4f0.SetExcludedHeaders(f4elemf7f1f0f4f0f1)
+									f4elemf7f1f0f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f1f0f4f0f2 := []*string{}
-									for _, f4elemf7f1f0f4f0f2iter := range f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f1f0f4f0f2elem string
-										f4elemf7f1f0f4f0f2elem = *f4elemf7f1f0f4f0f2iter
-										f4elemf7f1f0f4f0f2 = append(f4elemf7f1f0f4f0f2, &f4elemf7f1f0f4f0f2elem)
-									}
-									f4elemf7f1f0f4f0.SetIncludedHeaders(f4elemf7f1f0f4f0f2)
+									f4elemf7f1f0f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f1f0f4.SetMatchPattern(f4elemf7f1f0f4f0)
+								f4elemf7f1f0f4.MatchPattern = f4elemf7f1f0f4f0
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f1f0f4.SetMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f1f0f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f1f0f4.SetOversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f1f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f1f0.SetHeaders(f4elemf7f1f0f4)
+							f4elemf7f1f0.Headers = f4elemf7f1f0f4
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f1f0f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f1f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f1f0f5.SetFallbackBehavior(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f1f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f1f0.SetJA3Fingerprint(f4elemf7f1f0f5)
+							f4elemf7f1f0.JA3Fingerprint = f4elemf7f1f0f5
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f1f0f6 := &svcsdk.JsonBody{}
+							f4elemf7f1f0f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f1f0f6.SetInvalidFallbackBehavior(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f1f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f1f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f1f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f1f0f6f1f0 := &svcsdk.All{}
-									f4elemf7f1f0f6f1.SetAll(f4elemf7f1f0f6f1f0)
+									f4elemf7f1f0f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f1f0f6f1.All = f4elemf7f1f0f6f1f0
 								}
 								if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f1f0f6f1f1 := []*string{}
-									for _, f4elemf7f1f0f6f1f1iter := range f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f1f0f6f1f1elem string
-										f4elemf7f1f0f6f1f1elem = *f4elemf7f1f0f6f1f1iter
-										f4elemf7f1f0f6f1f1 = append(f4elemf7f1f0f6f1f1, &f4elemf7f1f0f6f1f1elem)
-									}
-									f4elemf7f1f0f6f1.SetIncludedPaths(f4elemf7f1f0f6f1f1)
+									f4elemf7f1f0f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f1f0f6.SetMatchPattern(f4elemf7f1f0f6f1)
+								f4elemf7f1f0f6.MatchPattern = f4elemf7f1f0f6f1
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f1f0f6.SetMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f1f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f1f0f6.SetOversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f1f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f1f0.SetJsonBody(f4elemf7f1f0f6)
+							f4elemf7f1f0.JsonBody = f4elemf7f1f0f6
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.Method != nil {
-							f4elemf7f1f0f7 := &svcsdk.Method{}
-							f4elemf7f1f0.SetMethod(f4elemf7f1f0f7)
+							f4elemf7f1f0f7 := &svcsdktypes.Method{}
+							f4elemf7f1f0.Method = f4elemf7f1f0f7
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f1f0f8 := &svcsdk.QueryString{}
-							f4elemf7f1f0.SetQueryString(f4elemf7f1f0f8)
+							f4elemf7f1f0f8 := &svcsdktypes.QueryString{}
+							f4elemf7f1f0.QueryString = f4elemf7f1f0f8
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f1f0f9 := &svcsdk.SingleHeader{}
+							f4elemf7f1f0f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f1f0f9.SetName(*f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f1f0f9.Name = f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f1f0.SetSingleHeader(f4elemf7f1f0f9)
+							f4elemf7f1f0.SingleHeader = f4elemf7f1f0f9
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f1f0f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f1f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f1f0f10.SetName(*f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f1f0f10.Name = f4iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f1f0.SetSingleQueryArgument(f4elemf7f1f0f10)
+							f4elemf7f1f0.SingleQueryArgument = f4elemf7f1f0f10
 						}
 						if f4iter.Statement.ByteMatchStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f1f0f11 := &svcsdk.UriPath{}
-							f4elemf7f1f0.SetUriPath(f4elemf7f1f0f11)
+							f4elemf7f1f0f11 := &svcsdktypes.UriPath{}
+							f4elemf7f1f0.UriPath = f4elemf7f1f0f11
 						}
-						f4elemf7f1.SetFieldToMatch(f4elemf7f1f0)
+						f4elemf7f1.FieldToMatch = f4elemf7f1f0
 					}
 					if f4iter.Statement.ByteMatchStatement.PositionalConstraint != nil {
-						f4elemf7f1.SetPositionalConstraint(*f4iter.Statement.ByteMatchStatement.PositionalConstraint)
+						f4elemf7f1.PositionalConstraint = svcsdktypes.PositionalConstraint(*f4iter.Statement.ByteMatchStatement.PositionalConstraint)
 					}
 					if f4iter.Statement.ByteMatchStatement.SearchString != nil {
-						f4elemf7f1.SetSearchString(f4iter.Statement.ByteMatchStatement.SearchString)
+						f4elemf7f1.SearchString = f4iter.Statement.ByteMatchStatement.SearchString
 					}
 					if f4iter.Statement.ByteMatchStatement.TextTransformations != nil {
-						f4elemf7f1f3 := []*svcsdk.TextTransformation{}
+						f4elemf7f1f3 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f1f3iter := range f4iter.Statement.ByteMatchStatement.TextTransformations {
-							f4elemf7f1f3elem := &svcsdk.TextTransformation{}
+							f4elemf7f1f3elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f1f3iter.Priority != nil {
-								f4elemf7f1f3elem.SetPriority(*f4elemf7f1f3iter.Priority)
+								priorityCopy0 := *f4elemf7f1f3iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f1f3elem.Priority = priorityCopy
 							}
 							if f4elemf7f1f3iter.Type != nil {
-								f4elemf7f1f3elem.SetType(*f4elemf7f1f3iter.Type)
+								f4elemf7f1f3elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f1f3iter.Type)
 							}
-							f4elemf7f1f3 = append(f4elemf7f1f3, f4elemf7f1f3elem)
+							f4elemf7f1f3 = append(f4elemf7f1f3, *f4elemf7f1f3elem)
 						}
-						f4elemf7f1.SetTextTransformations(f4elemf7f1f3)
+						f4elemf7f1.TextTransformations = f4elemf7f1f3
 					}
-					f4elemf7.SetByteMatchStatement(f4elemf7f1)
+					f4elemf7.ByteMatchStatement = f4elemf7f1
 				}
 				if f4iter.Statement.GeoMatchStatement != nil {
-					f4elemf7f2 := &svcsdk.GeoMatchStatement{}
+					f4elemf7f2 := &svcsdktypes.GeoMatchStatement{}
 					if f4iter.Statement.GeoMatchStatement.CountryCodes != nil {
-						f4elemf7f2f0 := []*string{}
+						f4elemf7f2f0 := []svcsdktypes.CountryCode{}
 						for _, f4elemf7f2f0iter := range f4iter.Statement.GeoMatchStatement.CountryCodes {
 							var f4elemf7f2f0elem string
-							f4elemf7f2f0elem = *f4elemf7f2f0iter
-							f4elemf7f2f0 = append(f4elemf7f2f0, &f4elemf7f2f0elem)
+							f4elemf7f2f0elem = string(*f4elemf7f2f0iter)
+							f4elemf7f2f0 = append(f4elemf7f2f0, svcsdktypes.CountryCode(f4elemf7f2f0elem))
 						}
-						f4elemf7f2.SetCountryCodes(f4elemf7f2f0)
+						f4elemf7f2.CountryCodes = f4elemf7f2f0
 					}
 					if f4iter.Statement.GeoMatchStatement.ForwardedIPConfig != nil {
-						f4elemf7f2f1 := &svcsdk.ForwardedIPConfig{}
+						f4elemf7f2f1 := &svcsdktypes.ForwardedIPConfig{}
 						if f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f4elemf7f2f1.SetFallbackBehavior(*f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior)
+							f4elemf7f2f1.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior)
 						}
 						if f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName != nil {
-							f4elemf7f2f1.SetHeaderName(*f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName)
+							f4elemf7f2f1.HeaderName = f4iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName
 						}
-						f4elemf7f2.SetForwardedIPConfig(f4elemf7f2f1)
+						f4elemf7f2.ForwardedIPConfig = f4elemf7f2f1
 					}
-					f4elemf7.SetGeoMatchStatement(f4elemf7f2)
+					f4elemf7.GeoMatchStatement = f4elemf7f2
 				}
 				if f4iter.Statement.IPSetReferenceStatement != nil {
-					f4elemf7f3 := &svcsdk.IPSetReferenceStatement{}
+					f4elemf7f3 := &svcsdktypes.IPSetReferenceStatement{}
 					if f4iter.Statement.IPSetReferenceStatement.ARN != nil {
-						f4elemf7f3.SetARN(*f4iter.Statement.IPSetReferenceStatement.ARN)
+						f4elemf7f3.ARN = f4iter.Statement.IPSetReferenceStatement.ARN
 					}
 					if f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig != nil {
-						f4elemf7f3f1 := &svcsdk.IPSetForwardedIPConfig{}
+						f4elemf7f3f1 := &svcsdktypes.IPSetForwardedIPConfig{}
 						if f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior != nil {
-							f4elemf7f3f1.SetFallbackBehavior(*f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior)
+							f4elemf7f3f1.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior)
 						}
 						if f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName != nil {
-							f4elemf7f3f1.SetHeaderName(*f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName)
+							f4elemf7f3f1.HeaderName = f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName
 						}
 						if f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position != nil {
-							f4elemf7f3f1.SetPosition(*f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position)
+							f4elemf7f3f1.Position = svcsdktypes.ForwardedIPPosition(*f4iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position)
 						}
-						f4elemf7f3.SetIPSetForwardedIPConfig(f4elemf7f3f1)
+						f4elemf7f3.IPSetForwardedIPConfig = f4elemf7f3f1
 					}
-					f4elemf7.SetIPSetReferenceStatement(f4elemf7f3)
+					f4elemf7.IPSetReferenceStatement = f4elemf7f3
 				}
 				if f4iter.Statement.LabelMatchStatement != nil {
-					f4elemf7f4 := &svcsdk.LabelMatchStatement{}
+					f4elemf7f4 := &svcsdktypes.LabelMatchStatement{}
 					if f4iter.Statement.LabelMatchStatement.Key != nil {
-						f4elemf7f4.SetKey(*f4iter.Statement.LabelMatchStatement.Key)
+						f4elemf7f4.Key = f4iter.Statement.LabelMatchStatement.Key
 					}
 					if f4iter.Statement.LabelMatchStatement.Scope != nil {
-						f4elemf7f4.SetScope(*f4iter.Statement.LabelMatchStatement.Scope)
+						f4elemf7f4.Scope = svcsdktypes.LabelMatchScope(*f4iter.Statement.LabelMatchStatement.Scope)
 					}
-					f4elemf7.SetLabelMatchStatement(f4elemf7f4)
+					f4elemf7.LabelMatchStatement = f4elemf7f4
 				}
 				if f4iter.Statement.ManagedRuleGroupStatement != nil {
-					f4elemf7f5 := &svcsdk.ManagedRuleGroupStatement{}
+					f4elemf7f5 := &svcsdktypes.ManagedRuleGroupStatement{}
 					if f4iter.Statement.ManagedRuleGroupStatement.ExcludedRules != nil {
-						f4elemf7f5f0 := []*svcsdk.ExcludedRule{}
+						f4elemf7f5f0 := []svcsdktypes.ExcludedRule{}
 						for _, f4elemf7f5f0iter := range f4iter.Statement.ManagedRuleGroupStatement.ExcludedRules {
-							f4elemf7f5f0elem := &svcsdk.ExcludedRule{}
+							f4elemf7f5f0elem := &svcsdktypes.ExcludedRule{}
 							if f4elemf7f5f0iter.Name != nil {
-								f4elemf7f5f0elem.SetName(*f4elemf7f5f0iter.Name)
+								f4elemf7f5f0elem.Name = f4elemf7f5f0iter.Name
 							}
-							f4elemf7f5f0 = append(f4elemf7f5f0, f4elemf7f5f0elem)
+							f4elemf7f5f0 = append(f4elemf7f5f0, *f4elemf7f5f0elem)
 						}
-						f4elemf7f5.SetExcludedRules(f4elemf7f5f0)
+						f4elemf7f5.ExcludedRules = f4elemf7f5f0
 					}
 					if f4iter.Statement.ManagedRuleGroupStatement.ManagedRuleGroupConfigs != nil {
-						f4elemf7f5f1 := []*svcsdk.ManagedRuleGroupConfig{}
+						f4elemf7f5f1 := []svcsdktypes.ManagedRuleGroupConfig{}
 						for _, f4elemf7f5f1iter := range f4iter.Statement.ManagedRuleGroupStatement.ManagedRuleGroupConfigs {
-							f4elemf7f5f1elem := &svcsdk.ManagedRuleGroupConfig{}
+							f4elemf7f5f1elem := &svcsdktypes.ManagedRuleGroupConfig{}
 							if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet != nil {
-								f4elemf7f5f1elemf0 := &svcsdk.AWSManagedRulesACFPRuleSet{}
+								f4elemf7f5f1elemf0 := &svcsdktypes.AWSManagedRulesACFPRuleSet{}
 								if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath != nil {
-									f4elemf7f5f1elemf0.SetCreationPath(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath)
+									f4elemf7f5f1elemf0.CreationPath = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath != nil {
-									f4elemf7f5f1elemf0.SetEnableRegexInPath(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath)
+									f4elemf7f5f1elemf0.EnableRegexInPath = *f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath != nil {
-									f4elemf7f5f1elemf0.SetRegistrationPagePath(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath)
+									f4elemf7f5f1elemf0.RegistrationPagePath = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection != nil {
-									f4elemf7f5f1elemf0f3 := &svcsdk.RequestInspectionACFP{}
+									f4elemf7f5f1elemf0f3 := &svcsdktypes.RequestInspectionACFP{}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.AddressFields != nil {
-										f4elemf7f5f1elemf0f3f0 := []*svcsdk.AddressField{}
+										f4elemf7f5f1elemf0f3f0 := []svcsdktypes.AddressField{}
 										for _, f4elemf7f5f1elemf0f3f0iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.AddressFields {
-											f4elemf7f5f1elemf0f3f0elem := &svcsdk.AddressField{}
+											f4elemf7f5f1elemf0f3f0elem := &svcsdktypes.AddressField{}
 											if f4elemf7f5f1elemf0f3f0iter.Identifier != nil {
-												f4elemf7f5f1elemf0f3f0elem.SetIdentifier(*f4elemf7f5f1elemf0f3f0iter.Identifier)
+												f4elemf7f5f1elemf0f3f0elem.Identifier = f4elemf7f5f1elemf0f3f0iter.Identifier
 											}
-											f4elemf7f5f1elemf0f3f0 = append(f4elemf7f5f1elemf0f3f0, f4elemf7f5f1elemf0f3f0elem)
+											f4elemf7f5f1elemf0f3f0 = append(f4elemf7f5f1elemf0f3f0, *f4elemf7f5f1elemf0f3f0elem)
 										}
-										f4elemf7f5f1elemf0f3.SetAddressFields(f4elemf7f5f1elemf0f3f0)
+										f4elemf7f5f1elemf0f3.AddressFields = f4elemf7f5f1elemf0f3f0
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField != nil {
-										f4elemf7f5f1elemf0f3f1 := &svcsdk.EmailField{}
+										f4elemf7f5f1elemf0f3f1 := &svcsdktypes.EmailField{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier != nil {
-											f4elemf7f5f1elemf0f3f1.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier)
+											f4elemf7f5f1elemf0f3f1.Identifier = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier
 										}
-										f4elemf7f5f1elemf0f3.SetEmailField(f4elemf7f5f1elemf0f3f1)
+										f4elemf7f5f1elemf0f3.EmailField = f4elemf7f5f1elemf0f3f1
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField != nil {
-										f4elemf7f5f1elemf0f3f2 := &svcsdk.PasswordField{}
+										f4elemf7f5f1elemf0f3f2 := &svcsdktypes.PasswordField{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier != nil {
-											f4elemf7f5f1elemf0f3f2.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier)
+											f4elemf7f5f1elemf0f3f2.Identifier = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier
 										}
-										f4elemf7f5f1elemf0f3.SetPasswordField(f4elemf7f5f1elemf0f3f2)
+										f4elemf7f5f1elemf0f3.PasswordField = f4elemf7f5f1elemf0f3f2
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType != nil {
-										f4elemf7f5f1elemf0f3.SetPayloadType(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType)
+										f4elemf7f5f1elemf0f3.PayloadType = svcsdktypes.PayloadType(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType)
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PhoneNumberFields != nil {
-										f4elemf7f5f1elemf0f3f4 := []*svcsdk.PhoneNumberField{}
+										f4elemf7f5f1elemf0f3f4 := []svcsdktypes.PhoneNumberField{}
 										for _, f4elemf7f5f1elemf0f3f4iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PhoneNumberFields {
-											f4elemf7f5f1elemf0f3f4elem := &svcsdk.PhoneNumberField{}
+											f4elemf7f5f1elemf0f3f4elem := &svcsdktypes.PhoneNumberField{}
 											if f4elemf7f5f1elemf0f3f4iter.Identifier != nil {
-												f4elemf7f5f1elemf0f3f4elem.SetIdentifier(*f4elemf7f5f1elemf0f3f4iter.Identifier)
+												f4elemf7f5f1elemf0f3f4elem.Identifier = f4elemf7f5f1elemf0f3f4iter.Identifier
 											}
-											f4elemf7f5f1elemf0f3f4 = append(f4elemf7f5f1elemf0f3f4, f4elemf7f5f1elemf0f3f4elem)
+											f4elemf7f5f1elemf0f3f4 = append(f4elemf7f5f1elemf0f3f4, *f4elemf7f5f1elemf0f3f4elem)
 										}
-										f4elemf7f5f1elemf0f3.SetPhoneNumberFields(f4elemf7f5f1elemf0f3f4)
+										f4elemf7f5f1elemf0f3.PhoneNumberFields = f4elemf7f5f1elemf0f3f4
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField != nil {
-										f4elemf7f5f1elemf0f3f5 := &svcsdk.UsernameField{}
+										f4elemf7f5f1elemf0f3f5 := &svcsdktypes.UsernameField{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier != nil {
-											f4elemf7f5f1elemf0f3f5.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier)
+											f4elemf7f5f1elemf0f3f5.Identifier = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier
 										}
-										f4elemf7f5f1elemf0f3.SetUsernameField(f4elemf7f5f1elemf0f3f5)
+										f4elemf7f5f1elemf0f3.UsernameField = f4elemf7f5f1elemf0f3f5
 									}
-									f4elemf7f5f1elemf0.SetRequestInspection(f4elemf7f5f1elemf0f3)
+									f4elemf7f5f1elemf0.RequestInspection = f4elemf7f5f1elemf0f3
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection != nil {
-									f4elemf7f5f1elemf0f4 := &svcsdk.ResponseInspection{}
+									f4elemf7f5f1elemf0f4 := &svcsdktypes.ResponseInspection{}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains != nil {
-										f4elemf7f5f1elemf0f4f0 := &svcsdk.ResponseInspectionBodyContains{}
+										f4elemf7f5f1elemf0f4f0 := &svcsdktypes.ResponseInspectionBodyContains{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f4elemf7f5f1elemf0f4f0f0 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f0f0iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f4elemf7f5f1elemf0f4f0f0elem string
-												f4elemf7f5f1elemf0f4f0f0elem = *f4elemf7f5f1elemf0f4f0f0iter
-												f4elemf7f5f1elemf0f4f0f0 = append(f4elemf7f5f1elemf0f4f0f0, &f4elemf7f5f1elemf0f4f0f0elem)
-											}
-											f4elemf7f5f1elemf0f4f0.SetFailureStrings(f4elemf7f5f1elemf0f4f0f0)
+											f4elemf7f5f1elemf0f4f0.FailureStrings = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f4elemf7f5f1elemf0f4f0f1 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f0f1iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f4elemf7f5f1elemf0f4f0f1elem string
-												f4elemf7f5f1elemf0f4f0f1elem = *f4elemf7f5f1elemf0f4f0f1iter
-												f4elemf7f5f1elemf0f4f0f1 = append(f4elemf7f5f1elemf0f4f0f1, &f4elemf7f5f1elemf0f4f0f1elem)
-											}
-											f4elemf7f5f1elemf0f4f0.SetSuccessStrings(f4elemf7f5f1elemf0f4f0f1)
+											f4elemf7f5f1elemf0f4f0.SuccessStrings = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
-										f4elemf7f5f1elemf0f4.SetBodyContains(f4elemf7f5f1elemf0f4f0)
+										f4elemf7f5f1elemf0f4.BodyContains = f4elemf7f5f1elemf0f4f0
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header != nil {
-										f4elemf7f5f1elemf0f4f1 := &svcsdk.ResponseInspectionHeader{}
+										f4elemf7f5f1elemf0f4f1 := &svcsdktypes.ResponseInspectionHeader{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f4elemf7f5f1elemf0f4f1f0 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f1f0iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues {
-												var f4elemf7f5f1elemf0f4f1f0elem string
-												f4elemf7f5f1elemf0f4f1f0elem = *f4elemf7f5f1elemf0f4f1f0iter
-												f4elemf7f5f1elemf0f4f1f0 = append(f4elemf7f5f1elemf0f4f1f0, &f4elemf7f5f1elemf0f4f1f0elem)
-											}
-											f4elemf7f5f1elemf0f4f1.SetFailureValues(f4elemf7f5f1elemf0f4f1f0)
+											f4elemf7f5f1elemf0f4f1.FailureValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name != nil {
-											f4elemf7f5f1elemf0f4f1.SetName(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name)
+											f4elemf7f5f1elemf0f4f1.Name = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f4elemf7f5f1elemf0f4f1f2 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f1f2iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f4elemf7f5f1elemf0f4f1f2elem string
-												f4elemf7f5f1elemf0f4f1f2elem = *f4elemf7f5f1elemf0f4f1f2iter
-												f4elemf7f5f1elemf0f4f1f2 = append(f4elemf7f5f1elemf0f4f1f2, &f4elemf7f5f1elemf0f4f1f2elem)
-											}
-											f4elemf7f5f1elemf0f4f1.SetSuccessValues(f4elemf7f5f1elemf0f4f1f2)
+											f4elemf7f5f1elemf0f4f1.SuccessValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
-										f4elemf7f5f1elemf0f4.SetHeader(f4elemf7f5f1elemf0f4f1)
+										f4elemf7f5f1elemf0f4.Header = f4elemf7f5f1elemf0f4f1
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON != nil {
-										f4elemf7f5f1elemf0f4f2 := &svcsdk.ResponseInspectionJson{}
+										f4elemf7f5f1elemf0f4f2 := &svcsdktypes.ResponseInspectionJson{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues != nil {
-											f4elemf7f5f1elemf0f4f2f0 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f2f0iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues {
-												var f4elemf7f5f1elemf0f4f2f0elem string
-												f4elemf7f5f1elemf0f4f2f0elem = *f4elemf7f5f1elemf0f4f2f0iter
-												f4elemf7f5f1elemf0f4f2f0 = append(f4elemf7f5f1elemf0f4f2f0, &f4elemf7f5f1elemf0f4f2f0elem)
-											}
-											f4elemf7f5f1elemf0f4f2.SetFailureValues(f4elemf7f5f1elemf0f4f2f0)
+											f4elemf7f5f1elemf0f4f2.FailureValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier != nil {
-											f4elemf7f5f1elemf0f4f2.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier)
+											f4elemf7f5f1elemf0f4f2.Identifier = f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues != nil {
-											f4elemf7f5f1elemf0f4f2f2 := []*string{}
-											for _, f4elemf7f5f1elemf0f4f2f2iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues {
-												var f4elemf7f5f1elemf0f4f2f2elem string
-												f4elemf7f5f1elemf0f4f2f2elem = *f4elemf7f5f1elemf0f4f2f2iter
-												f4elemf7f5f1elemf0f4f2f2 = append(f4elemf7f5f1elemf0f4f2f2, &f4elemf7f5f1elemf0f4f2f2elem)
-											}
-											f4elemf7f5f1elemf0f4f2.SetSuccessValues(f4elemf7f5f1elemf0f4f2f2)
+											f4elemf7f5f1elemf0f4f2.SuccessValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues)
 										}
-										f4elemf7f5f1elemf0f4.SetJson(f4elemf7f5f1elemf0f4f2)
+										f4elemf7f5f1elemf0f4.Json = f4elemf7f5f1elemf0f4f2
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode != nil {
-										f4elemf7f5f1elemf0f4f3 := &svcsdk.ResponseInspectionStatusCode{}
+										f4elemf7f5f1elemf0f4f3 := &svcsdktypes.ResponseInspectionStatusCode{}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
-											f4elemf7f5f1elemf0f4f3f0 := []*int64{}
+											f4elemf7f5f1elemf0f4f3f0 := []int32{}
 											for _, f4elemf7f5f1elemf0f4f3f0iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f4elemf7f5f1elemf0f4f3f0elem int64
-												f4elemf7f5f1elemf0f4f3f0elem = *f4elemf7f5f1elemf0f4f3f0iter
-												f4elemf7f5f1elemf0f4f3f0 = append(f4elemf7f5f1elemf0f4f3f0, &f4elemf7f5f1elemf0f4f3f0elem)
+												var f4elemf7f5f1elemf0f4f3f0elem int32
+												failureCodeCopy0 := *f4elemf7f5f1elemf0f4f3f0iter
+												if failureCodeCopy0 > math.MaxInt32 || failureCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field FailureCode is of type int32")
+												}
+												failureCodeCopy := int32(failureCodeCopy0)
+												f4elemf7f5f1elemf0f4f3f0elem = failureCodeCopy
+												f4elemf7f5f1elemf0f4f3f0 = append(f4elemf7f5f1elemf0f4f3f0, f4elemf7f5f1elemf0f4f3f0elem)
 											}
-											f4elemf7f5f1elemf0f4f3.SetFailureCodes(f4elemf7f5f1elemf0f4f3f0)
+											f4elemf7f5f1elemf0f4f3.FailureCodes = f4elemf7f5f1elemf0f4f3f0
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
-											f4elemf7f5f1elemf0f4f3f1 := []*int64{}
+											f4elemf7f5f1elemf0f4f3f1 := []int32{}
 											for _, f4elemf7f5f1elemf0f4f3f1iter := range f4elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f4elemf7f5f1elemf0f4f3f1elem int64
-												f4elemf7f5f1elemf0f4f3f1elem = *f4elemf7f5f1elemf0f4f3f1iter
-												f4elemf7f5f1elemf0f4f3f1 = append(f4elemf7f5f1elemf0f4f3f1, &f4elemf7f5f1elemf0f4f3f1elem)
+												var f4elemf7f5f1elemf0f4f3f1elem int32
+												successCodeCopy0 := *f4elemf7f5f1elemf0f4f3f1iter
+												if successCodeCopy0 > math.MaxInt32 || successCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field SuccessCode is of type int32")
+												}
+												successCodeCopy := int32(successCodeCopy0)
+												f4elemf7f5f1elemf0f4f3f1elem = successCodeCopy
+												f4elemf7f5f1elemf0f4f3f1 = append(f4elemf7f5f1elemf0f4f3f1, f4elemf7f5f1elemf0f4f3f1elem)
 											}
-											f4elemf7f5f1elemf0f4f3.SetSuccessCodes(f4elemf7f5f1elemf0f4f3f1)
+											f4elemf7f5f1elemf0f4f3.SuccessCodes = f4elemf7f5f1elemf0f4f3f1
 										}
-										f4elemf7f5f1elemf0f4.SetStatusCode(f4elemf7f5f1elemf0f4f3)
+										f4elemf7f5f1elemf0f4.StatusCode = f4elemf7f5f1elemf0f4f3
 									}
-									f4elemf7f5f1elemf0.SetResponseInspection(f4elemf7f5f1elemf0f4)
+									f4elemf7f5f1elemf0.ResponseInspection = f4elemf7f5f1elemf0f4
 								}
-								f4elemf7f5f1elem.SetAWSManagedRulesACFPRuleSet(f4elemf7f5f1elemf0)
+								f4elemf7f5f1elem.AWSManagedRulesACFPRuleSet = f4elemf7f5f1elemf0
 							}
 							if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet != nil {
-								f4elemf7f5f1elemf1 := &svcsdk.AWSManagedRulesATPRuleSet{}
+								f4elemf7f5f1elemf1 := &svcsdktypes.AWSManagedRulesATPRuleSet{}
 								if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath != nil {
-									f4elemf7f5f1elemf1.SetEnableRegexInPath(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath)
+									f4elemf7f5f1elemf1.EnableRegexInPath = *f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath != nil {
-									f4elemf7f5f1elemf1.SetLoginPath(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath)
+									f4elemf7f5f1elemf1.LoginPath = f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection != nil {
-									f4elemf7f5f1elemf1f2 := &svcsdk.RequestInspection{}
+									f4elemf7f5f1elemf1f2 := &svcsdktypes.RequestInspection{}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField != nil {
-										f4elemf7f5f1elemf1f2f0 := &svcsdk.PasswordField{}
+										f4elemf7f5f1elemf1f2f0 := &svcsdktypes.PasswordField{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier != nil {
-											f4elemf7f5f1elemf1f2f0.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier)
+											f4elemf7f5f1elemf1f2f0.Identifier = f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier
 										}
-										f4elemf7f5f1elemf1f2.SetPasswordField(f4elemf7f5f1elemf1f2f0)
+										f4elemf7f5f1elemf1f2.PasswordField = f4elemf7f5f1elemf1f2f0
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType != nil {
-										f4elemf7f5f1elemf1f2.SetPayloadType(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType)
+										f4elemf7f5f1elemf1f2.PayloadType = svcsdktypes.PayloadType(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType)
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField != nil {
-										f4elemf7f5f1elemf1f2f2 := &svcsdk.UsernameField{}
+										f4elemf7f5f1elemf1f2f2 := &svcsdktypes.UsernameField{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier != nil {
-											f4elemf7f5f1elemf1f2f2.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier)
+											f4elemf7f5f1elemf1f2f2.Identifier = f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier
 										}
-										f4elemf7f5f1elemf1f2.SetUsernameField(f4elemf7f5f1elemf1f2f2)
+										f4elemf7f5f1elemf1f2.UsernameField = f4elemf7f5f1elemf1f2f2
 									}
-									f4elemf7f5f1elemf1.SetRequestInspection(f4elemf7f5f1elemf1f2)
+									f4elemf7f5f1elemf1.RequestInspection = f4elemf7f5f1elemf1f2
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection != nil {
-									f4elemf7f5f1elemf1f3 := &svcsdk.ResponseInspection{}
+									f4elemf7f5f1elemf1f3 := &svcsdktypes.ResponseInspection{}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains != nil {
-										f4elemf7f5f1elemf1f3f0 := &svcsdk.ResponseInspectionBodyContains{}
+										f4elemf7f5f1elemf1f3f0 := &svcsdktypes.ResponseInspectionBodyContains{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f4elemf7f5f1elemf1f3f0f0 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f0f0iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f4elemf7f5f1elemf1f3f0f0elem string
-												f4elemf7f5f1elemf1f3f0f0elem = *f4elemf7f5f1elemf1f3f0f0iter
-												f4elemf7f5f1elemf1f3f0f0 = append(f4elemf7f5f1elemf1f3f0f0, &f4elemf7f5f1elemf1f3f0f0elem)
-											}
-											f4elemf7f5f1elemf1f3f0.SetFailureStrings(f4elemf7f5f1elemf1f3f0f0)
+											f4elemf7f5f1elemf1f3f0.FailureStrings = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f4elemf7f5f1elemf1f3f0f1 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f0f1iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f4elemf7f5f1elemf1f3f0f1elem string
-												f4elemf7f5f1elemf1f3f0f1elem = *f4elemf7f5f1elemf1f3f0f1iter
-												f4elemf7f5f1elemf1f3f0f1 = append(f4elemf7f5f1elemf1f3f0f1, &f4elemf7f5f1elemf1f3f0f1elem)
-											}
-											f4elemf7f5f1elemf1f3f0.SetSuccessStrings(f4elemf7f5f1elemf1f3f0f1)
+											f4elemf7f5f1elemf1f3f0.SuccessStrings = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
-										f4elemf7f5f1elemf1f3.SetBodyContains(f4elemf7f5f1elemf1f3f0)
+										f4elemf7f5f1elemf1f3.BodyContains = f4elemf7f5f1elemf1f3f0
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header != nil {
-										f4elemf7f5f1elemf1f3f1 := &svcsdk.ResponseInspectionHeader{}
+										f4elemf7f5f1elemf1f3f1 := &svcsdktypes.ResponseInspectionHeader{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f4elemf7f5f1elemf1f3f1f0 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f1f0iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues {
-												var f4elemf7f5f1elemf1f3f1f0elem string
-												f4elemf7f5f1elemf1f3f1f0elem = *f4elemf7f5f1elemf1f3f1f0iter
-												f4elemf7f5f1elemf1f3f1f0 = append(f4elemf7f5f1elemf1f3f1f0, &f4elemf7f5f1elemf1f3f1f0elem)
-											}
-											f4elemf7f5f1elemf1f3f1.SetFailureValues(f4elemf7f5f1elemf1f3f1f0)
+											f4elemf7f5f1elemf1f3f1.FailureValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name != nil {
-											f4elemf7f5f1elemf1f3f1.SetName(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name)
+											f4elemf7f5f1elemf1f3f1.Name = f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f4elemf7f5f1elemf1f3f1f2 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f1f2iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f4elemf7f5f1elemf1f3f1f2elem string
-												f4elemf7f5f1elemf1f3f1f2elem = *f4elemf7f5f1elemf1f3f1f2iter
-												f4elemf7f5f1elemf1f3f1f2 = append(f4elemf7f5f1elemf1f3f1f2, &f4elemf7f5f1elemf1f3f1f2elem)
-											}
-											f4elemf7f5f1elemf1f3f1.SetSuccessValues(f4elemf7f5f1elemf1f3f1f2)
+											f4elemf7f5f1elemf1f3f1.SuccessValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
-										f4elemf7f5f1elemf1f3.SetHeader(f4elemf7f5f1elemf1f3f1)
+										f4elemf7f5f1elemf1f3.Header = f4elemf7f5f1elemf1f3f1
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON != nil {
-										f4elemf7f5f1elemf1f3f2 := &svcsdk.ResponseInspectionJson{}
+										f4elemf7f5f1elemf1f3f2 := &svcsdktypes.ResponseInspectionJson{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues != nil {
-											f4elemf7f5f1elemf1f3f2f0 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f2f0iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues {
-												var f4elemf7f5f1elemf1f3f2f0elem string
-												f4elemf7f5f1elemf1f3f2f0elem = *f4elemf7f5f1elemf1f3f2f0iter
-												f4elemf7f5f1elemf1f3f2f0 = append(f4elemf7f5f1elemf1f3f2f0, &f4elemf7f5f1elemf1f3f2f0elem)
-											}
-											f4elemf7f5f1elemf1f3f2.SetFailureValues(f4elemf7f5f1elemf1f3f2f0)
+											f4elemf7f5f1elemf1f3f2.FailureValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues)
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier != nil {
-											f4elemf7f5f1elemf1f3f2.SetIdentifier(*f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier)
+											f4elemf7f5f1elemf1f3f2.Identifier = f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues != nil {
-											f4elemf7f5f1elemf1f3f2f2 := []*string{}
-											for _, f4elemf7f5f1elemf1f3f2f2iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues {
-												var f4elemf7f5f1elemf1f3f2f2elem string
-												f4elemf7f5f1elemf1f3f2f2elem = *f4elemf7f5f1elemf1f3f2f2iter
-												f4elemf7f5f1elemf1f3f2f2 = append(f4elemf7f5f1elemf1f3f2f2, &f4elemf7f5f1elemf1f3f2f2elem)
-											}
-											f4elemf7f5f1elemf1f3f2.SetSuccessValues(f4elemf7f5f1elemf1f3f2f2)
+											f4elemf7f5f1elemf1f3f2.SuccessValues = aws.ToStringSlice(f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues)
 										}
-										f4elemf7f5f1elemf1f3.SetJson(f4elemf7f5f1elemf1f3f2)
+										f4elemf7f5f1elemf1f3.Json = f4elemf7f5f1elemf1f3f2
 									}
 									if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode != nil {
-										f4elemf7f5f1elemf1f3f3 := &svcsdk.ResponseInspectionStatusCode{}
+										f4elemf7f5f1elemf1f3f3 := &svcsdktypes.ResponseInspectionStatusCode{}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
-											f4elemf7f5f1elemf1f3f3f0 := []*int64{}
+											f4elemf7f5f1elemf1f3f3f0 := []int32{}
 											for _, f4elemf7f5f1elemf1f3f3f0iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f4elemf7f5f1elemf1f3f3f0elem int64
-												f4elemf7f5f1elemf1f3f3f0elem = *f4elemf7f5f1elemf1f3f3f0iter
-												f4elemf7f5f1elemf1f3f3f0 = append(f4elemf7f5f1elemf1f3f3f0, &f4elemf7f5f1elemf1f3f3f0elem)
+												var f4elemf7f5f1elemf1f3f3f0elem int32
+												failureCodeCopy0 := *f4elemf7f5f1elemf1f3f3f0iter
+												if failureCodeCopy0 > math.MaxInt32 || failureCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field FailureCode is of type int32")
+												}
+												failureCodeCopy := int32(failureCodeCopy0)
+												f4elemf7f5f1elemf1f3f3f0elem = failureCodeCopy
+												f4elemf7f5f1elemf1f3f3f0 = append(f4elemf7f5f1elemf1f3f3f0, f4elemf7f5f1elemf1f3f3f0elem)
 											}
-											f4elemf7f5f1elemf1f3f3.SetFailureCodes(f4elemf7f5f1elemf1f3f3f0)
+											f4elemf7f5f1elemf1f3f3.FailureCodes = f4elemf7f5f1elemf1f3f3f0
 										}
 										if f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
-											f4elemf7f5f1elemf1f3f3f1 := []*int64{}
+											f4elemf7f5f1elemf1f3f3f1 := []int32{}
 											for _, f4elemf7f5f1elemf1f3f3f1iter := range f4elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f4elemf7f5f1elemf1f3f3f1elem int64
-												f4elemf7f5f1elemf1f3f3f1elem = *f4elemf7f5f1elemf1f3f3f1iter
-												f4elemf7f5f1elemf1f3f3f1 = append(f4elemf7f5f1elemf1f3f3f1, &f4elemf7f5f1elemf1f3f3f1elem)
+												var f4elemf7f5f1elemf1f3f3f1elem int32
+												successCodeCopy0 := *f4elemf7f5f1elemf1f3f3f1iter
+												if successCodeCopy0 > math.MaxInt32 || successCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field SuccessCode is of type int32")
+												}
+												successCodeCopy := int32(successCodeCopy0)
+												f4elemf7f5f1elemf1f3f3f1elem = successCodeCopy
+												f4elemf7f5f1elemf1f3f3f1 = append(f4elemf7f5f1elemf1f3f3f1, f4elemf7f5f1elemf1f3f3f1elem)
 											}
-											f4elemf7f5f1elemf1f3f3.SetSuccessCodes(f4elemf7f5f1elemf1f3f3f1)
+											f4elemf7f5f1elemf1f3f3.SuccessCodes = f4elemf7f5f1elemf1f3f3f1
 										}
-										f4elemf7f5f1elemf1f3.SetStatusCode(f4elemf7f5f1elemf1f3f3)
+										f4elemf7f5f1elemf1f3.StatusCode = f4elemf7f5f1elemf1f3f3
 									}
-									f4elemf7f5f1elemf1.SetResponseInspection(f4elemf7f5f1elemf1f3)
+									f4elemf7f5f1elemf1.ResponseInspection = f4elemf7f5f1elemf1f3
 								}
-								f4elemf7f5f1elem.SetAWSManagedRulesATPRuleSet(f4elemf7f5f1elemf1)
+								f4elemf7f5f1elem.AWSManagedRulesATPRuleSet = f4elemf7f5f1elemf1
 							}
 							if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet != nil {
-								f4elemf7f5f1elemf2 := &svcsdk.AWSManagedRulesBotControlRuleSet{}
+								f4elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
 								if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
-									f4elemf7f5f1elemf2.SetEnableMachineLearning(*f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning)
+									f4elemf7f5f1elemf2.EnableMachineLearning = f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != nil {
-									f4elemf7f5f1elemf2.SetInspectionLevel(*f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
+									f4elemf7f5f1elemf2.InspectionLevel = svcsdktypes.InspectionLevel(*f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
 								}
-								f4elemf7f5f1elem.SetAWSManagedRulesBotControlRuleSet(f4elemf7f5f1elemf2)
+								f4elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f4elemf7f5f1elemf2
 							}
 							if f4elemf7f5f1iter.LoginPath != nil {
-								f4elemf7f5f1elem.SetLoginPath(*f4elemf7f5f1iter.LoginPath)
+								f4elemf7f5f1elem.LoginPath = f4elemf7f5f1iter.LoginPath
 							}
 							if f4elemf7f5f1iter.PasswordField != nil {
-								f4elemf7f5f1elemf4 := &svcsdk.PasswordField{}
+								f4elemf7f5f1elemf4 := &svcsdktypes.PasswordField{}
 								if f4elemf7f5f1iter.PasswordField.Identifier != nil {
-									f4elemf7f5f1elemf4.SetIdentifier(*f4elemf7f5f1iter.PasswordField.Identifier)
+									f4elemf7f5f1elemf4.Identifier = f4elemf7f5f1iter.PasswordField.Identifier
 								}
-								f4elemf7f5f1elem.SetPasswordField(f4elemf7f5f1elemf4)
+								f4elemf7f5f1elem.PasswordField = f4elemf7f5f1elemf4
 							}
 							if f4elemf7f5f1iter.PayloadType != nil {
-								f4elemf7f5f1elem.SetPayloadType(*f4elemf7f5f1iter.PayloadType)
+								f4elemf7f5f1elem.PayloadType = svcsdktypes.PayloadType(*f4elemf7f5f1iter.PayloadType)
 							}
 							if f4elemf7f5f1iter.UsernameField != nil {
-								f4elemf7f5f1elemf6 := &svcsdk.UsernameField{}
+								f4elemf7f5f1elemf6 := &svcsdktypes.UsernameField{}
 								if f4elemf7f5f1iter.UsernameField.Identifier != nil {
-									f4elemf7f5f1elemf6.SetIdentifier(*f4elemf7f5f1iter.UsernameField.Identifier)
+									f4elemf7f5f1elemf6.Identifier = f4elemf7f5f1iter.UsernameField.Identifier
 								}
-								f4elemf7f5f1elem.SetUsernameField(f4elemf7f5f1elemf6)
+								f4elemf7f5f1elem.UsernameField = f4elemf7f5f1elemf6
 							}
-							f4elemf7f5f1 = append(f4elemf7f5f1, f4elemf7f5f1elem)
+							f4elemf7f5f1 = append(f4elemf7f5f1, *f4elemf7f5f1elem)
 						}
-						f4elemf7f5.SetManagedRuleGroupConfigs(f4elemf7f5f1)
+						f4elemf7f5.ManagedRuleGroupConfigs = f4elemf7f5f1
 					}
 					if f4iter.Statement.ManagedRuleGroupStatement.Name != nil {
-						f4elemf7f5.SetName(*f4iter.Statement.ManagedRuleGroupStatement.Name)
+						f4elemf7f5.Name = f4iter.Statement.ManagedRuleGroupStatement.Name
 					}
 					if f4iter.Statement.ManagedRuleGroupStatement.RuleActionOverrides != nil {
-						f4elemf7f5f3 := []*svcsdk.RuleActionOverride{}
+						f4elemf7f5f3 := []svcsdktypes.RuleActionOverride{}
 						for _, f4elemf7f5f3iter := range f4iter.Statement.ManagedRuleGroupStatement.RuleActionOverrides {
-							f4elemf7f5f3elem := &svcsdk.RuleActionOverride{}
+							f4elemf7f5f3elem := &svcsdktypes.RuleActionOverride{}
 							if f4elemf7f5f3iter.ActionToUse != nil {
-								f4elemf7f5f3elemf0 := &svcsdk.RuleAction{}
+								f4elemf7f5f3elemf0 := &svcsdktypes.RuleAction{}
 								if f4elemf7f5f3iter.ActionToUse.Allow != nil {
-									f4elemf7f5f3elemf0f0 := &svcsdk.AllowAction{}
+									f4elemf7f5f3elemf0f0 := &svcsdktypes.AllowAction{}
 									if f4elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling != nil {
-										f4elemf7f5f3elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f5f3elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f5f3elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f5f3elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f5f3elemf0f0f0f0iter := range f4elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders {
-												f4elemf7f5f3elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f5f3elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f5f3elemf0f0f0f0iter.Name != nil {
-													f4elemf7f5f3elemf0f0f0f0elem.SetName(*f4elemf7f5f3elemf0f0f0f0iter.Name)
+													f4elemf7f5f3elemf0f0f0f0elem.Name = f4elemf7f5f3elemf0f0f0f0iter.Name
 												}
 												if f4elemf7f5f3elemf0f0f0f0iter.Value != nil {
-													f4elemf7f5f3elemf0f0f0f0elem.SetValue(*f4elemf7f5f3elemf0f0f0f0iter.Value)
+													f4elemf7f5f3elemf0f0f0f0elem.Value = f4elemf7f5f3elemf0f0f0f0iter.Value
 												}
-												f4elemf7f5f3elemf0f0f0f0 = append(f4elemf7f5f3elemf0f0f0f0, f4elemf7f5f3elemf0f0f0f0elem)
+												f4elemf7f5f3elemf0f0f0f0 = append(f4elemf7f5f3elemf0f0f0f0, *f4elemf7f5f3elemf0f0f0f0elem)
 											}
-											f4elemf7f5f3elemf0f0f0.SetInsertHeaders(f4elemf7f5f3elemf0f0f0f0)
+											f4elemf7f5f3elemf0f0f0.InsertHeaders = f4elemf7f5f3elemf0f0f0f0
 										}
-										f4elemf7f5f3elemf0f0.SetCustomRequestHandling(f4elemf7f5f3elemf0f0f0)
+										f4elemf7f5f3elemf0f0.CustomRequestHandling = f4elemf7f5f3elemf0f0f0
 									}
-									f4elemf7f5f3elemf0.SetAllow(f4elemf7f5f3elemf0f0)
+									f4elemf7f5f3elemf0.Allow = f4elemf7f5f3elemf0f0
 								}
 								if f4elemf7f5f3iter.ActionToUse.Block != nil {
-									f4elemf7f5f3elemf0f1 := &svcsdk.BlockAction{}
+									f4elemf7f5f3elemf0f1 := &svcsdktypes.BlockAction{}
 									if f4elemf7f5f3iter.ActionToUse.Block.CustomResponse != nil {
-										f4elemf7f5f3elemf0f1f0 := &svcsdk.CustomResponse{}
+										f4elemf7f5f3elemf0f1f0 := &svcsdktypes.CustomResponse{}
 										if f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey != nil {
-											f4elemf7f5f3elemf0f1f0.SetCustomResponseBodyKey(*f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey)
+											f4elemf7f5f3elemf0f1f0.CustomResponseBodyKey = f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f4elemf7f5f3elemf0f1f0.SetResponseCode(*f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											responseCodeCopy0 := *f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode
+											if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+											}
+											responseCodeCopy := int32(responseCodeCopy0)
+											f4elemf7f5f3elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
-											f4elemf7f5f3elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f5f3elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f5f3elemf0f1f0f2iter := range f4elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseHeaders {
-												f4elemf7f5f3elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f5f3elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f5f3elemf0f1f0f2iter.Name != nil {
-													f4elemf7f5f3elemf0f1f0f2elem.SetName(*f4elemf7f5f3elemf0f1f0f2iter.Name)
+													f4elemf7f5f3elemf0f1f0f2elem.Name = f4elemf7f5f3elemf0f1f0f2iter.Name
 												}
 												if f4elemf7f5f3elemf0f1f0f2iter.Value != nil {
-													f4elemf7f5f3elemf0f1f0f2elem.SetValue(*f4elemf7f5f3elemf0f1f0f2iter.Value)
+													f4elemf7f5f3elemf0f1f0f2elem.Value = f4elemf7f5f3elemf0f1f0f2iter.Value
 												}
-												f4elemf7f5f3elemf0f1f0f2 = append(f4elemf7f5f3elemf0f1f0f2, f4elemf7f5f3elemf0f1f0f2elem)
+												f4elemf7f5f3elemf0f1f0f2 = append(f4elemf7f5f3elemf0f1f0f2, *f4elemf7f5f3elemf0f1f0f2elem)
 											}
-											f4elemf7f5f3elemf0f1f0.SetResponseHeaders(f4elemf7f5f3elemf0f1f0f2)
+											f4elemf7f5f3elemf0f1f0.ResponseHeaders = f4elemf7f5f3elemf0f1f0f2
 										}
-										f4elemf7f5f3elemf0f1.SetCustomResponse(f4elemf7f5f3elemf0f1f0)
+										f4elemf7f5f3elemf0f1.CustomResponse = f4elemf7f5f3elemf0f1f0
 									}
-									f4elemf7f5f3elemf0.SetBlock(f4elemf7f5f3elemf0f1)
+									f4elemf7f5f3elemf0.Block = f4elemf7f5f3elemf0f1
 								}
 								if f4elemf7f5f3iter.ActionToUse.Captcha != nil {
-									f4elemf7f5f3elemf0f2 := &svcsdk.CaptchaAction{}
+									f4elemf7f5f3elemf0f2 := &svcsdktypes.CaptchaAction{}
 									if f4elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling != nil {
-										f4elemf7f5f3elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f5f3elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f5f3elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f5f3elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f5f3elemf0f2f0f0iter := range f4elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders {
-												f4elemf7f5f3elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f5f3elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f5f3elemf0f2f0f0iter.Name != nil {
-													f4elemf7f5f3elemf0f2f0f0elem.SetName(*f4elemf7f5f3elemf0f2f0f0iter.Name)
+													f4elemf7f5f3elemf0f2f0f0elem.Name = f4elemf7f5f3elemf0f2f0f0iter.Name
 												}
 												if f4elemf7f5f3elemf0f2f0f0iter.Value != nil {
-													f4elemf7f5f3elemf0f2f0f0elem.SetValue(*f4elemf7f5f3elemf0f2f0f0iter.Value)
+													f4elemf7f5f3elemf0f2f0f0elem.Value = f4elemf7f5f3elemf0f2f0f0iter.Value
 												}
-												f4elemf7f5f3elemf0f2f0f0 = append(f4elemf7f5f3elemf0f2f0f0, f4elemf7f5f3elemf0f2f0f0elem)
+												f4elemf7f5f3elemf0f2f0f0 = append(f4elemf7f5f3elemf0f2f0f0, *f4elemf7f5f3elemf0f2f0f0elem)
 											}
-											f4elemf7f5f3elemf0f2f0.SetInsertHeaders(f4elemf7f5f3elemf0f2f0f0)
+											f4elemf7f5f3elemf0f2f0.InsertHeaders = f4elemf7f5f3elemf0f2f0f0
 										}
-										f4elemf7f5f3elemf0f2.SetCustomRequestHandling(f4elemf7f5f3elemf0f2f0)
+										f4elemf7f5f3elemf0f2.CustomRequestHandling = f4elemf7f5f3elemf0f2f0
 									}
-									f4elemf7f5f3elemf0.SetCaptcha(f4elemf7f5f3elemf0f2)
+									f4elemf7f5f3elemf0.Captcha = f4elemf7f5f3elemf0f2
 								}
 								if f4elemf7f5f3iter.ActionToUse.Challenge != nil {
-									f4elemf7f5f3elemf0f3 := &svcsdk.ChallengeAction{}
+									f4elemf7f5f3elemf0f3 := &svcsdktypes.ChallengeAction{}
 									if f4elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling != nil {
-										f4elemf7f5f3elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f5f3elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f5f3elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f5f3elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f5f3elemf0f3f0f0iter := range f4elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders {
-												f4elemf7f5f3elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f5f3elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f5f3elemf0f3f0f0iter.Name != nil {
-													f4elemf7f5f3elemf0f3f0f0elem.SetName(*f4elemf7f5f3elemf0f3f0f0iter.Name)
+													f4elemf7f5f3elemf0f3f0f0elem.Name = f4elemf7f5f3elemf0f3f0f0iter.Name
 												}
 												if f4elemf7f5f3elemf0f3f0f0iter.Value != nil {
-													f4elemf7f5f3elemf0f3f0f0elem.SetValue(*f4elemf7f5f3elemf0f3f0f0iter.Value)
+													f4elemf7f5f3elemf0f3f0f0elem.Value = f4elemf7f5f3elemf0f3f0f0iter.Value
 												}
-												f4elemf7f5f3elemf0f3f0f0 = append(f4elemf7f5f3elemf0f3f0f0, f4elemf7f5f3elemf0f3f0f0elem)
+												f4elemf7f5f3elemf0f3f0f0 = append(f4elemf7f5f3elemf0f3f0f0, *f4elemf7f5f3elemf0f3f0f0elem)
 											}
-											f4elemf7f5f3elemf0f3f0.SetInsertHeaders(f4elemf7f5f3elemf0f3f0f0)
+											f4elemf7f5f3elemf0f3f0.InsertHeaders = f4elemf7f5f3elemf0f3f0f0
 										}
-										f4elemf7f5f3elemf0f3.SetCustomRequestHandling(f4elemf7f5f3elemf0f3f0)
+										f4elemf7f5f3elemf0f3.CustomRequestHandling = f4elemf7f5f3elemf0f3f0
 									}
-									f4elemf7f5f3elemf0.SetChallenge(f4elemf7f5f3elemf0f3)
+									f4elemf7f5f3elemf0.Challenge = f4elemf7f5f3elemf0f3
 								}
 								if f4elemf7f5f3iter.ActionToUse.Count != nil {
-									f4elemf7f5f3elemf0f4 := &svcsdk.CountAction{}
+									f4elemf7f5f3elemf0f4 := &svcsdktypes.CountAction{}
 									if f4elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling != nil {
-										f4elemf7f5f3elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f5f3elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f5f3elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f5f3elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f5f3elemf0f4f0f0iter := range f4elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders {
-												f4elemf7f5f3elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f5f3elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f5f3elemf0f4f0f0iter.Name != nil {
-													f4elemf7f5f3elemf0f4f0f0elem.SetName(*f4elemf7f5f3elemf0f4f0f0iter.Name)
+													f4elemf7f5f3elemf0f4f0f0elem.Name = f4elemf7f5f3elemf0f4f0f0iter.Name
 												}
 												if f4elemf7f5f3elemf0f4f0f0iter.Value != nil {
-													f4elemf7f5f3elemf0f4f0f0elem.SetValue(*f4elemf7f5f3elemf0f4f0f0iter.Value)
+													f4elemf7f5f3elemf0f4f0f0elem.Value = f4elemf7f5f3elemf0f4f0f0iter.Value
 												}
-												f4elemf7f5f3elemf0f4f0f0 = append(f4elemf7f5f3elemf0f4f0f0, f4elemf7f5f3elemf0f4f0f0elem)
+												f4elemf7f5f3elemf0f4f0f0 = append(f4elemf7f5f3elemf0f4f0f0, *f4elemf7f5f3elemf0f4f0f0elem)
 											}
-											f4elemf7f5f3elemf0f4f0.SetInsertHeaders(f4elemf7f5f3elemf0f4f0f0)
+											f4elemf7f5f3elemf0f4f0.InsertHeaders = f4elemf7f5f3elemf0f4f0f0
 										}
-										f4elemf7f5f3elemf0f4.SetCustomRequestHandling(f4elemf7f5f3elemf0f4f0)
+										f4elemf7f5f3elemf0f4.CustomRequestHandling = f4elemf7f5f3elemf0f4f0
 									}
-									f4elemf7f5f3elemf0.SetCount(f4elemf7f5f3elemf0f4)
+									f4elemf7f5f3elemf0.Count = f4elemf7f5f3elemf0f4
 								}
-								f4elemf7f5f3elem.SetActionToUse(f4elemf7f5f3elemf0)
+								f4elemf7f5f3elem.ActionToUse = f4elemf7f5f3elemf0
 							}
 							if f4elemf7f5f3iter.Name != nil {
-								f4elemf7f5f3elem.SetName(*f4elemf7f5f3iter.Name)
+								f4elemf7f5f3elem.Name = f4elemf7f5f3iter.Name
 							}
-							f4elemf7f5f3 = append(f4elemf7f5f3, f4elemf7f5f3elem)
+							f4elemf7f5f3 = append(f4elemf7f5f3, *f4elemf7f5f3elem)
 						}
-						f4elemf7f5.SetRuleActionOverrides(f4elemf7f5f3)
+						f4elemf7f5.RuleActionOverrides = f4elemf7f5f3
 					}
 					if f4iter.Statement.ManagedRuleGroupStatement.VendorName != nil {
-						f4elemf7f5.SetVendorName(*f4iter.Statement.ManagedRuleGroupStatement.VendorName)
+						f4elemf7f5.VendorName = f4iter.Statement.ManagedRuleGroupStatement.VendorName
 					}
 					if f4iter.Statement.ManagedRuleGroupStatement.Version != nil {
-						f4elemf7f5.SetVersion(*f4iter.Statement.ManagedRuleGroupStatement.Version)
+						f4elemf7f5.Version = f4iter.Statement.ManagedRuleGroupStatement.Version
 					}
-					f4elemf7.SetManagedRuleGroupStatement(f4elemf7f5)
+					f4elemf7.ManagedRuleGroupStatement = f4elemf7f5
 				}
 				if f4iter.Statement.RateBasedStatement != nil {
-					f4elemf7f8 := &svcsdk.RateBasedStatement{}
+					f4elemf7f8 := &svcsdktypes.RateBasedStatement{}
 					if f4iter.Statement.RateBasedStatement.AggregateKeyType != nil {
-						f4elemf7f8.SetAggregateKeyType(*f4iter.Statement.RateBasedStatement.AggregateKeyType)
+						f4elemf7f8.AggregateKeyType = svcsdktypes.RateBasedStatementAggregateKeyType(*f4iter.Statement.RateBasedStatement.AggregateKeyType)
 					}
 					if f4iter.Statement.RateBasedStatement.CustomKeys != nil {
-						f4elemf7f8f1 := []*svcsdk.RateBasedStatementCustomKey{}
+						f4elemf7f8f1 := []svcsdktypes.RateBasedStatementCustomKey{}
 						for _, f4elemf7f8f1iter := range f4iter.Statement.RateBasedStatement.CustomKeys {
-							f4elemf7f8f1elem := &svcsdk.RateBasedStatementCustomKey{}
+							f4elemf7f8f1elem := &svcsdktypes.RateBasedStatementCustomKey{}
 							if f4elemf7f8f1iter.Cookie != nil {
-								f4elemf7f8f1elemf0 := &svcsdk.RateLimitCookie{}
+								f4elemf7f8f1elemf0 := &svcsdktypes.RateLimitCookie{}
 								if f4elemf7f8f1iter.Cookie.Name != nil {
-									f4elemf7f8f1elemf0.SetName(*f4elemf7f8f1iter.Cookie.Name)
+									f4elemf7f8f1elemf0.Name = f4elemf7f8f1iter.Cookie.Name
 								}
 								if f4elemf7f8f1iter.Cookie.TextTransformations != nil {
-									f4elemf7f8f1elemf0f1 := []*svcsdk.TextTransformation{}
+									f4elemf7f8f1elemf0f1 := []svcsdktypes.TextTransformation{}
 									for _, f4elemf7f8f1elemf0f1iter := range f4elemf7f8f1iter.Cookie.TextTransformations {
-										f4elemf7f8f1elemf0f1elem := &svcsdk.TextTransformation{}
+										f4elemf7f8f1elemf0f1elem := &svcsdktypes.TextTransformation{}
 										if f4elemf7f8f1elemf0f1iter.Priority != nil {
-											f4elemf7f8f1elemf0f1elem.SetPriority(*f4elemf7f8f1elemf0f1iter.Priority)
+											priorityCopy0 := *f4elemf7f8f1elemf0f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f4elemf7f8f1elemf0f1elem.Priority = priorityCopy
 										}
 										if f4elemf7f8f1elemf0f1iter.Type != nil {
-											f4elemf7f8f1elemf0f1elem.SetType(*f4elemf7f8f1elemf0f1iter.Type)
+											f4elemf7f8f1elemf0f1elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f8f1elemf0f1iter.Type)
 										}
-										f4elemf7f8f1elemf0f1 = append(f4elemf7f8f1elemf0f1, f4elemf7f8f1elemf0f1elem)
+										f4elemf7f8f1elemf0f1 = append(f4elemf7f8f1elemf0f1, *f4elemf7f8f1elemf0f1elem)
 									}
-									f4elemf7f8f1elemf0.SetTextTransformations(f4elemf7f8f1elemf0f1)
+									f4elemf7f8f1elemf0.TextTransformations = f4elemf7f8f1elemf0f1
 								}
-								f4elemf7f8f1elem.SetCookie(f4elemf7f8f1elemf0)
+								f4elemf7f8f1elem.Cookie = f4elemf7f8f1elemf0
 							}
 							if f4elemf7f8f1iter.ForwardedIP != nil {
-								f4elemf7f8f1elemf1 := &svcsdk.RateLimitForwardedIP{}
-								f4elemf7f8f1elem.SetForwardedIP(f4elemf7f8f1elemf1)
+								f4elemf7f8f1elemf1 := &svcsdktypes.RateLimitForwardedIP{}
+								f4elemf7f8f1elem.ForwardedIP = f4elemf7f8f1elemf1
 							}
 							if f4elemf7f8f1iter.HTTPMethod != nil {
-								f4elemf7f8f1elemf2 := &svcsdk.RateLimitHTTPMethod{}
-								f4elemf7f8f1elem.SetHTTPMethod(f4elemf7f8f1elemf2)
+								f4elemf7f8f1elemf2 := &svcsdktypes.RateLimitHTTPMethod{}
+								f4elemf7f8f1elem.HTTPMethod = f4elemf7f8f1elemf2
 							}
 							if f4elemf7f8f1iter.Header != nil {
-								f4elemf7f8f1elemf3 := &svcsdk.RateLimitHeader{}
+								f4elemf7f8f1elemf3 := &svcsdktypes.RateLimitHeader{}
 								if f4elemf7f8f1iter.Header.Name != nil {
-									f4elemf7f8f1elemf3.SetName(*f4elemf7f8f1iter.Header.Name)
+									f4elemf7f8f1elemf3.Name = f4elemf7f8f1iter.Header.Name
 								}
 								if f4elemf7f8f1iter.Header.TextTransformations != nil {
-									f4elemf7f8f1elemf3f1 := []*svcsdk.TextTransformation{}
+									f4elemf7f8f1elemf3f1 := []svcsdktypes.TextTransformation{}
 									for _, f4elemf7f8f1elemf3f1iter := range f4elemf7f8f1iter.Header.TextTransformations {
-										f4elemf7f8f1elemf3f1elem := &svcsdk.TextTransformation{}
+										f4elemf7f8f1elemf3f1elem := &svcsdktypes.TextTransformation{}
 										if f4elemf7f8f1elemf3f1iter.Priority != nil {
-											f4elemf7f8f1elemf3f1elem.SetPriority(*f4elemf7f8f1elemf3f1iter.Priority)
+											priorityCopy0 := *f4elemf7f8f1elemf3f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f4elemf7f8f1elemf3f1elem.Priority = priorityCopy
 										}
 										if f4elemf7f8f1elemf3f1iter.Type != nil {
-											f4elemf7f8f1elemf3f1elem.SetType(*f4elemf7f8f1elemf3f1iter.Type)
+											f4elemf7f8f1elemf3f1elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f8f1elemf3f1iter.Type)
 										}
-										f4elemf7f8f1elemf3f1 = append(f4elemf7f8f1elemf3f1, f4elemf7f8f1elemf3f1elem)
+										f4elemf7f8f1elemf3f1 = append(f4elemf7f8f1elemf3f1, *f4elemf7f8f1elemf3f1elem)
 									}
-									f4elemf7f8f1elemf3.SetTextTransformations(f4elemf7f8f1elemf3f1)
+									f4elemf7f8f1elemf3.TextTransformations = f4elemf7f8f1elemf3f1
 								}
-								f4elemf7f8f1elem.SetHeader(f4elemf7f8f1elemf3)
+								f4elemf7f8f1elem.Header = f4elemf7f8f1elemf3
 							}
 							if f4elemf7f8f1iter.IP != nil {
-								f4elemf7f8f1elemf4 := &svcsdk.RateLimitIP{}
-								f4elemf7f8f1elem.SetIP(f4elemf7f8f1elemf4)
+								f4elemf7f8f1elemf4 := &svcsdktypes.RateLimitIP{}
+								f4elemf7f8f1elem.IP = f4elemf7f8f1elemf4
 							}
 							if f4elemf7f8f1iter.LabelNamespace != nil {
-								f4elemf7f8f1elemf5 := &svcsdk.RateLimitLabelNamespace{}
+								f4elemf7f8f1elemf5 := &svcsdktypes.RateLimitLabelNamespace{}
 								if f4elemf7f8f1iter.LabelNamespace.Namespace != nil {
-									f4elemf7f8f1elemf5.SetNamespace(*f4elemf7f8f1iter.LabelNamespace.Namespace)
+									f4elemf7f8f1elemf5.Namespace = f4elemf7f8f1iter.LabelNamespace.Namespace
 								}
-								f4elemf7f8f1elem.SetLabelNamespace(f4elemf7f8f1elemf5)
+								f4elemf7f8f1elem.LabelNamespace = f4elemf7f8f1elemf5
 							}
 							if f4elemf7f8f1iter.QueryArgument != nil {
-								f4elemf7f8f1elemf6 := &svcsdk.RateLimitQueryArgument{}
+								f4elemf7f8f1elemf6 := &svcsdktypes.RateLimitQueryArgument{}
 								if f4elemf7f8f1iter.QueryArgument.Name != nil {
-									f4elemf7f8f1elemf6.SetName(*f4elemf7f8f1iter.QueryArgument.Name)
+									f4elemf7f8f1elemf6.Name = f4elemf7f8f1iter.QueryArgument.Name
 								}
 								if f4elemf7f8f1iter.QueryArgument.TextTransformations != nil {
-									f4elemf7f8f1elemf6f1 := []*svcsdk.TextTransformation{}
+									f4elemf7f8f1elemf6f1 := []svcsdktypes.TextTransformation{}
 									for _, f4elemf7f8f1elemf6f1iter := range f4elemf7f8f1iter.QueryArgument.TextTransformations {
-										f4elemf7f8f1elemf6f1elem := &svcsdk.TextTransformation{}
+										f4elemf7f8f1elemf6f1elem := &svcsdktypes.TextTransformation{}
 										if f4elemf7f8f1elemf6f1iter.Priority != nil {
-											f4elemf7f8f1elemf6f1elem.SetPriority(*f4elemf7f8f1elemf6f1iter.Priority)
+											priorityCopy0 := *f4elemf7f8f1elemf6f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f4elemf7f8f1elemf6f1elem.Priority = priorityCopy
 										}
 										if f4elemf7f8f1elemf6f1iter.Type != nil {
-											f4elemf7f8f1elemf6f1elem.SetType(*f4elemf7f8f1elemf6f1iter.Type)
+											f4elemf7f8f1elemf6f1elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f8f1elemf6f1iter.Type)
 										}
-										f4elemf7f8f1elemf6f1 = append(f4elemf7f8f1elemf6f1, f4elemf7f8f1elemf6f1elem)
+										f4elemf7f8f1elemf6f1 = append(f4elemf7f8f1elemf6f1, *f4elemf7f8f1elemf6f1elem)
 									}
-									f4elemf7f8f1elemf6.SetTextTransformations(f4elemf7f8f1elemf6f1)
+									f4elemf7f8f1elemf6.TextTransformations = f4elemf7f8f1elemf6f1
 								}
-								f4elemf7f8f1elem.SetQueryArgument(f4elemf7f8f1elemf6)
+								f4elemf7f8f1elem.QueryArgument = f4elemf7f8f1elemf6
 							}
 							if f4elemf7f8f1iter.QueryString != nil {
-								f4elemf7f8f1elemf7 := &svcsdk.RateLimitQueryString{}
+								f4elemf7f8f1elemf7 := &svcsdktypes.RateLimitQueryString{}
 								if f4elemf7f8f1iter.QueryString.TextTransformations != nil {
-									f4elemf7f8f1elemf7f0 := []*svcsdk.TextTransformation{}
+									f4elemf7f8f1elemf7f0 := []svcsdktypes.TextTransformation{}
 									for _, f4elemf7f8f1elemf7f0iter := range f4elemf7f8f1iter.QueryString.TextTransformations {
-										f4elemf7f8f1elemf7f0elem := &svcsdk.TextTransformation{}
+										f4elemf7f8f1elemf7f0elem := &svcsdktypes.TextTransformation{}
 										if f4elemf7f8f1elemf7f0iter.Priority != nil {
-											f4elemf7f8f1elemf7f0elem.SetPriority(*f4elemf7f8f1elemf7f0iter.Priority)
+											priorityCopy0 := *f4elemf7f8f1elemf7f0iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f4elemf7f8f1elemf7f0elem.Priority = priorityCopy
 										}
 										if f4elemf7f8f1elemf7f0iter.Type != nil {
-											f4elemf7f8f1elemf7f0elem.SetType(*f4elemf7f8f1elemf7f0iter.Type)
+											f4elemf7f8f1elemf7f0elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f8f1elemf7f0iter.Type)
 										}
-										f4elemf7f8f1elemf7f0 = append(f4elemf7f8f1elemf7f0, f4elemf7f8f1elemf7f0elem)
+										f4elemf7f8f1elemf7f0 = append(f4elemf7f8f1elemf7f0, *f4elemf7f8f1elemf7f0elem)
 									}
-									f4elemf7f8f1elemf7.SetTextTransformations(f4elemf7f8f1elemf7f0)
+									f4elemf7f8f1elemf7.TextTransformations = f4elemf7f8f1elemf7f0
 								}
-								f4elemf7f8f1elem.SetQueryString(f4elemf7f8f1elemf7)
+								f4elemf7f8f1elem.QueryString = f4elemf7f8f1elemf7
 							}
 							if f4elemf7f8f1iter.URIPath != nil {
-								f4elemf7f8f1elemf8 := &svcsdk.RateLimitUriPath{}
+								f4elemf7f8f1elemf8 := &svcsdktypes.RateLimitUriPath{}
 								if f4elemf7f8f1iter.URIPath.TextTransformations != nil {
-									f4elemf7f8f1elemf8f0 := []*svcsdk.TextTransformation{}
+									f4elemf7f8f1elemf8f0 := []svcsdktypes.TextTransformation{}
 									for _, f4elemf7f8f1elemf8f0iter := range f4elemf7f8f1iter.URIPath.TextTransformations {
-										f4elemf7f8f1elemf8f0elem := &svcsdk.TextTransformation{}
+										f4elemf7f8f1elemf8f0elem := &svcsdktypes.TextTransformation{}
 										if f4elemf7f8f1elemf8f0iter.Priority != nil {
-											f4elemf7f8f1elemf8f0elem.SetPriority(*f4elemf7f8f1elemf8f0iter.Priority)
+											priorityCopy0 := *f4elemf7f8f1elemf8f0iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f4elemf7f8f1elemf8f0elem.Priority = priorityCopy
 										}
 										if f4elemf7f8f1elemf8f0iter.Type != nil {
-											f4elemf7f8f1elemf8f0elem.SetType(*f4elemf7f8f1elemf8f0iter.Type)
+											f4elemf7f8f1elemf8f0elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f8f1elemf8f0iter.Type)
 										}
-										f4elemf7f8f1elemf8f0 = append(f4elemf7f8f1elemf8f0, f4elemf7f8f1elemf8f0elem)
+										f4elemf7f8f1elemf8f0 = append(f4elemf7f8f1elemf8f0, *f4elemf7f8f1elemf8f0elem)
 									}
-									f4elemf7f8f1elemf8.SetTextTransformations(f4elemf7f8f1elemf8f0)
+									f4elemf7f8f1elemf8.TextTransformations = f4elemf7f8f1elemf8f0
 								}
-								f4elemf7f8f1elem.SetUriPath(f4elemf7f8f1elemf8)
+								f4elemf7f8f1elem.UriPath = f4elemf7f8f1elemf8
 							}
-							f4elemf7f8f1 = append(f4elemf7f8f1, f4elemf7f8f1elem)
+							f4elemf7f8f1 = append(f4elemf7f8f1, *f4elemf7f8f1elem)
 						}
-						f4elemf7f8.SetCustomKeys(f4elemf7f8f1)
+						f4elemf7f8.CustomKeys = f4elemf7f8f1
 					}
 					if f4iter.Statement.RateBasedStatement.EvaluationWindowSec != nil {
-						f4elemf7f8.SetEvaluationWindowSec(*f4iter.Statement.RateBasedStatement.EvaluationWindowSec)
+						f4elemf7f8.EvaluationWindowSec = *f4iter.Statement.RateBasedStatement.EvaluationWindowSec
 					}
 					if f4iter.Statement.RateBasedStatement.ForwardedIPConfig != nil {
-						f4elemf7f8f3 := &svcsdk.ForwardedIPConfig{}
+						f4elemf7f8f3 := &svcsdktypes.ForwardedIPConfig{}
 						if f4iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f4elemf7f8f3.SetFallbackBehavior(*f4iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior)
+							f4elemf7f8f3.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior)
 						}
 						if f4iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName != nil {
-							f4elemf7f8f3.SetHeaderName(*f4iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName)
+							f4elemf7f8f3.HeaderName = f4iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName
 						}
-						f4elemf7f8.SetForwardedIPConfig(f4elemf7f8f3)
+						f4elemf7f8.ForwardedIPConfig = f4elemf7f8f3
 					}
 					if f4iter.Statement.RateBasedStatement.Limit != nil {
-						f4elemf7f8.SetLimit(*f4iter.Statement.RateBasedStatement.Limit)
+						f4elemf7f8.Limit = f4iter.Statement.RateBasedStatement.Limit
 					}
-					f4elemf7.SetRateBasedStatement(f4elemf7f8)
+					f4elemf7.RateBasedStatement = f4elemf7f8
 				}
 				if f4iter.Statement.RegexMatchStatement != nil {
-					f4elemf7f9 := &svcsdk.RegexMatchStatement{}
+					f4elemf7f9 := &svcsdktypes.RegexMatchStatement{}
 					if f4iter.Statement.RegexMatchStatement.FieldToMatch != nil {
-						f4elemf7f9f0 := &svcsdk.FieldToMatch{}
+						f4elemf7f9f0 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f9f0f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f9f0.SetAllQueryArguments(f4elemf7f9f0f0)
+							f4elemf7f9f0f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f9f0.AllQueryArguments = f4elemf7f9f0f0
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.Body != nil {
-							f4elemf7f9f0f1 := &svcsdk.Body{}
+							f4elemf7f9f0f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f9f0f1.SetOversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f9f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f9f0.SetBody(f4elemf7f9f0f1)
+							f4elemf7f9f0.Body = f4elemf7f9f0f1
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f9f0f2 := &svcsdk.Cookies{}
+							f4elemf7f9f0f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f9f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f9f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f9f0f2f0f0 := &svcsdk.All{}
-									f4elemf7f9f0f2f0.SetAll(f4elemf7f9f0f2f0f0)
+									f4elemf7f9f0f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f9f0f2f0.All = f4elemf7f9f0f2f0f0
 								}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f9f0f2f0f1 := []*string{}
-									for _, f4elemf7f9f0f2f0f1iter := range f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f9f0f2f0f1elem string
-										f4elemf7f9f0f2f0f1elem = *f4elemf7f9f0f2f0f1iter
-										f4elemf7f9f0f2f0f1 = append(f4elemf7f9f0f2f0f1, &f4elemf7f9f0f2f0f1elem)
-									}
-									f4elemf7f9f0f2f0.SetExcludedCookies(f4elemf7f9f0f2f0f1)
+									f4elemf7f9f0f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f9f0f2f0f2 := []*string{}
-									for _, f4elemf7f9f0f2f0f2iter := range f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f9f0f2f0f2elem string
-										f4elemf7f9f0f2f0f2elem = *f4elemf7f9f0f2f0f2iter
-										f4elemf7f9f0f2f0f2 = append(f4elemf7f9f0f2f0f2, &f4elemf7f9f0f2f0f2elem)
-									}
-									f4elemf7f9f0f2f0.SetIncludedCookies(f4elemf7f9f0f2f0f2)
+									f4elemf7f9f0f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f9f0f2.SetMatchPattern(f4elemf7f9f0f2f0)
+								f4elemf7f9f0f2.MatchPattern = f4elemf7f9f0f2f0
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f9f0f2.SetMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f9f0f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f9f0f2.SetOversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f9f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f9f0.SetCookies(f4elemf7f9f0f2)
+							f4elemf7f9f0.Cookies = f4elemf7f9f0f2
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f9f0f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f9f0f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f9f0f3.SetOversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f9f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f9f0.SetHeaderOrder(f4elemf7f9f0f3)
+							f4elemf7f9f0.HeaderOrder = f4elemf7f9f0f3
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers != nil {
-							f4elemf7f9f0f4 := &svcsdk.Headers{}
+							f4elemf7f9f0f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f9f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f9f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f9f0f4f0f0 := &svcsdk.All{}
-									f4elemf7f9f0f4f0.SetAll(f4elemf7f9f0f4f0f0)
+									f4elemf7f9f0f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f9f0f4f0.All = f4elemf7f9f0f4f0f0
 								}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f9f0f4f0f1 := []*string{}
-									for _, f4elemf7f9f0f4f0f1iter := range f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f9f0f4f0f1elem string
-										f4elemf7f9f0f4f0f1elem = *f4elemf7f9f0f4f0f1iter
-										f4elemf7f9f0f4f0f1 = append(f4elemf7f9f0f4f0f1, &f4elemf7f9f0f4f0f1elem)
-									}
-									f4elemf7f9f0f4f0.SetExcludedHeaders(f4elemf7f9f0f4f0f1)
+									f4elemf7f9f0f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f9f0f4f0f2 := []*string{}
-									for _, f4elemf7f9f0f4f0f2iter := range f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f9f0f4f0f2elem string
-										f4elemf7f9f0f4f0f2elem = *f4elemf7f9f0f4f0f2iter
-										f4elemf7f9f0f4f0f2 = append(f4elemf7f9f0f4f0f2, &f4elemf7f9f0f4f0f2elem)
-									}
-									f4elemf7f9f0f4f0.SetIncludedHeaders(f4elemf7f9f0f4f0f2)
+									f4elemf7f9f0f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f9f0f4.SetMatchPattern(f4elemf7f9f0f4f0)
+								f4elemf7f9f0f4.MatchPattern = f4elemf7f9f0f4f0
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f9f0f4.SetMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f9f0f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f9f0f4.SetOversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f9f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f9f0.SetHeaders(f4elemf7f9f0f4)
+							f4elemf7f9f0.Headers = f4elemf7f9f0f4
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f9f0f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f9f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f9f0f5.SetFallbackBehavior(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f9f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f9f0.SetJA3Fingerprint(f4elemf7f9f0f5)
+							f4elemf7f9f0.JA3Fingerprint = f4elemf7f9f0f5
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f9f0f6 := &svcsdk.JsonBody{}
+							f4elemf7f9f0f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f9f0f6.SetInvalidFallbackBehavior(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f9f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f9f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f9f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f9f0f6f1f0 := &svcsdk.All{}
-									f4elemf7f9f0f6f1.SetAll(f4elemf7f9f0f6f1f0)
+									f4elemf7f9f0f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f9f0f6f1.All = f4elemf7f9f0f6f1f0
 								}
 								if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f9f0f6f1f1 := []*string{}
-									for _, f4elemf7f9f0f6f1f1iter := range f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f9f0f6f1f1elem string
-										f4elemf7f9f0f6f1f1elem = *f4elemf7f9f0f6f1f1iter
-										f4elemf7f9f0f6f1f1 = append(f4elemf7f9f0f6f1f1, &f4elemf7f9f0f6f1f1elem)
-									}
-									f4elemf7f9f0f6f1.SetIncludedPaths(f4elemf7f9f0f6f1f1)
+									f4elemf7f9f0f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f9f0f6.SetMatchPattern(f4elemf7f9f0f6f1)
+								f4elemf7f9f0f6.MatchPattern = f4elemf7f9f0f6f1
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f9f0f6.SetMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f9f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f9f0f6.SetOversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f9f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f9f0.SetJsonBody(f4elemf7f9f0f6)
+							f4elemf7f9f0.JsonBody = f4elemf7f9f0f6
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.Method != nil {
-							f4elemf7f9f0f7 := &svcsdk.Method{}
-							f4elemf7f9f0.SetMethod(f4elemf7f9f0f7)
+							f4elemf7f9f0f7 := &svcsdktypes.Method{}
+							f4elemf7f9f0.Method = f4elemf7f9f0f7
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f9f0f8 := &svcsdk.QueryString{}
-							f4elemf7f9f0.SetQueryString(f4elemf7f9f0f8)
+							f4elemf7f9f0f8 := &svcsdktypes.QueryString{}
+							f4elemf7f9f0.QueryString = f4elemf7f9f0f8
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f9f0f9 := &svcsdk.SingleHeader{}
+							f4elemf7f9f0f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f9f0f9.SetName(*f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f9f0f9.Name = f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f9f0.SetSingleHeader(f4elemf7f9f0f9)
+							f4elemf7f9f0.SingleHeader = f4elemf7f9f0f9
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f9f0f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f9f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f9f0f10.SetName(*f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f9f0f10.Name = f4iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f9f0.SetSingleQueryArgument(f4elemf7f9f0f10)
+							f4elemf7f9f0.SingleQueryArgument = f4elemf7f9f0f10
 						}
 						if f4iter.Statement.RegexMatchStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f9f0f11 := &svcsdk.UriPath{}
-							f4elemf7f9f0.SetUriPath(f4elemf7f9f0f11)
+							f4elemf7f9f0f11 := &svcsdktypes.UriPath{}
+							f4elemf7f9f0.UriPath = f4elemf7f9f0f11
 						}
-						f4elemf7f9.SetFieldToMatch(f4elemf7f9f0)
+						f4elemf7f9.FieldToMatch = f4elemf7f9f0
 					}
 					if f4iter.Statement.RegexMatchStatement.RegexString != nil {
-						f4elemf7f9.SetRegexString(*f4iter.Statement.RegexMatchStatement.RegexString)
+						f4elemf7f9.RegexString = f4iter.Statement.RegexMatchStatement.RegexString
 					}
 					if f4iter.Statement.RegexMatchStatement.TextTransformations != nil {
-						f4elemf7f9f2 := []*svcsdk.TextTransformation{}
+						f4elemf7f9f2 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f9f2iter := range f4iter.Statement.RegexMatchStatement.TextTransformations {
-							f4elemf7f9f2elem := &svcsdk.TextTransformation{}
+							f4elemf7f9f2elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f9f2iter.Priority != nil {
-								f4elemf7f9f2elem.SetPriority(*f4elemf7f9f2iter.Priority)
+								priorityCopy0 := *f4elemf7f9f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f9f2elem.Priority = priorityCopy
 							}
 							if f4elemf7f9f2iter.Type != nil {
-								f4elemf7f9f2elem.SetType(*f4elemf7f9f2iter.Type)
+								f4elemf7f9f2elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f9f2iter.Type)
 							}
-							f4elemf7f9f2 = append(f4elemf7f9f2, f4elemf7f9f2elem)
+							f4elemf7f9f2 = append(f4elemf7f9f2, *f4elemf7f9f2elem)
 						}
-						f4elemf7f9.SetTextTransformations(f4elemf7f9f2)
+						f4elemf7f9.TextTransformations = f4elemf7f9f2
 					}
-					f4elemf7.SetRegexMatchStatement(f4elemf7f9)
+					f4elemf7.RegexMatchStatement = f4elemf7f9
 				}
 				if f4iter.Statement.RegexPatternSetReferenceStatement != nil {
-					f4elemf7f10 := &svcsdk.RegexPatternSetReferenceStatement{}
+					f4elemf7f10 := &svcsdktypes.RegexPatternSetReferenceStatement{}
 					if f4iter.Statement.RegexPatternSetReferenceStatement.ARN != nil {
-						f4elemf7f10.SetARN(*f4iter.Statement.RegexPatternSetReferenceStatement.ARN)
+						f4elemf7f10.ARN = f4iter.Statement.RegexPatternSetReferenceStatement.ARN
 					}
 					if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch != nil {
-						f4elemf7f10f1 := &svcsdk.FieldToMatch{}
+						f4elemf7f10f1 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f10f1f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f10f1.SetAllQueryArguments(f4elemf7f10f1f0)
+							f4elemf7f10f1f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f10f1.AllQueryArguments = f4elemf7f10f1f0
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body != nil {
-							f4elemf7f10f1f1 := &svcsdk.Body{}
+							f4elemf7f10f1f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f10f1f1.SetOversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f10f1f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f10f1.SetBody(f4elemf7f10f1f1)
+							f4elemf7f10f1.Body = f4elemf7f10f1f1
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f10f1f2 := &svcsdk.Cookies{}
+							f4elemf7f10f1f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f10f1f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f10f1f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f10f1f2f0f0 := &svcsdk.All{}
-									f4elemf7f10f1f2f0.SetAll(f4elemf7f10f1f2f0f0)
+									f4elemf7f10f1f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f10f1f2f0.All = f4elemf7f10f1f2f0f0
 								}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f10f1f2f0f1 := []*string{}
-									for _, f4elemf7f10f1f2f0f1iter := range f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f10f1f2f0f1elem string
-										f4elemf7f10f1f2f0f1elem = *f4elemf7f10f1f2f0f1iter
-										f4elemf7f10f1f2f0f1 = append(f4elemf7f10f1f2f0f1, &f4elemf7f10f1f2f0f1elem)
-									}
-									f4elemf7f10f1f2f0.SetExcludedCookies(f4elemf7f10f1f2f0f1)
+									f4elemf7f10f1f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f10f1f2f0f2 := []*string{}
-									for _, f4elemf7f10f1f2f0f2iter := range f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f10f1f2f0f2elem string
-										f4elemf7f10f1f2f0f2elem = *f4elemf7f10f1f2f0f2iter
-										f4elemf7f10f1f2f0f2 = append(f4elemf7f10f1f2f0f2, &f4elemf7f10f1f2f0f2elem)
-									}
-									f4elemf7f10f1f2f0.SetIncludedCookies(f4elemf7f10f1f2f0f2)
+									f4elemf7f10f1f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f10f1f2.SetMatchPattern(f4elemf7f10f1f2f0)
+								f4elemf7f10f1f2.MatchPattern = f4elemf7f10f1f2f0
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f10f1f2.SetMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f10f1f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f10f1f2.SetOversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f10f1f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f10f1.SetCookies(f4elemf7f10f1f2)
+							f4elemf7f10f1.Cookies = f4elemf7f10f1f2
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f10f1f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f10f1f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f10f1f3.SetOversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f10f1f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f10f1.SetHeaderOrder(f4elemf7f10f1f3)
+							f4elemf7f10f1.HeaderOrder = f4elemf7f10f1f3
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers != nil {
-							f4elemf7f10f1f4 := &svcsdk.Headers{}
+							f4elemf7f10f1f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f10f1f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f10f1f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f10f1f4f0f0 := &svcsdk.All{}
-									f4elemf7f10f1f4f0.SetAll(f4elemf7f10f1f4f0f0)
+									f4elemf7f10f1f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f10f1f4f0.All = f4elemf7f10f1f4f0f0
 								}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f10f1f4f0f1 := []*string{}
-									for _, f4elemf7f10f1f4f0f1iter := range f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f10f1f4f0f1elem string
-										f4elemf7f10f1f4f0f1elem = *f4elemf7f10f1f4f0f1iter
-										f4elemf7f10f1f4f0f1 = append(f4elemf7f10f1f4f0f1, &f4elemf7f10f1f4f0f1elem)
-									}
-									f4elemf7f10f1f4f0.SetExcludedHeaders(f4elemf7f10f1f4f0f1)
+									f4elemf7f10f1f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f10f1f4f0f2 := []*string{}
-									for _, f4elemf7f10f1f4f0f2iter := range f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f10f1f4f0f2elem string
-										f4elemf7f10f1f4f0f2elem = *f4elemf7f10f1f4f0f2iter
-										f4elemf7f10f1f4f0f2 = append(f4elemf7f10f1f4f0f2, &f4elemf7f10f1f4f0f2elem)
-									}
-									f4elemf7f10f1f4f0.SetIncludedHeaders(f4elemf7f10f1f4f0f2)
+									f4elemf7f10f1f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f10f1f4.SetMatchPattern(f4elemf7f10f1f4f0)
+								f4elemf7f10f1f4.MatchPattern = f4elemf7f10f1f4f0
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f10f1f4.SetMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f10f1f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f10f1f4.SetOversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f10f1f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f10f1.SetHeaders(f4elemf7f10f1f4)
+							f4elemf7f10f1.Headers = f4elemf7f10f1f4
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f10f1f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f10f1f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f10f1f5.SetFallbackBehavior(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f10f1f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f10f1.SetJA3Fingerprint(f4elemf7f10f1f5)
+							f4elemf7f10f1.JA3Fingerprint = f4elemf7f10f1f5
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f10f1f6 := &svcsdk.JsonBody{}
+							f4elemf7f10f1f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f10f1f6.SetInvalidFallbackBehavior(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f10f1f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f10f1f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f10f1f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f10f1f6f1f0 := &svcsdk.All{}
-									f4elemf7f10f1f6f1.SetAll(f4elemf7f10f1f6f1f0)
+									f4elemf7f10f1f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f10f1f6f1.All = f4elemf7f10f1f6f1f0
 								}
 								if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f10f1f6f1f1 := []*string{}
-									for _, f4elemf7f10f1f6f1f1iter := range f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f10f1f6f1f1elem string
-										f4elemf7f10f1f6f1f1elem = *f4elemf7f10f1f6f1f1iter
-										f4elemf7f10f1f6f1f1 = append(f4elemf7f10f1f6f1f1, &f4elemf7f10f1f6f1f1elem)
-									}
-									f4elemf7f10f1f6f1.SetIncludedPaths(f4elemf7f10f1f6f1f1)
+									f4elemf7f10f1f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f10f1f6.SetMatchPattern(f4elemf7f10f1f6f1)
+								f4elemf7f10f1f6.MatchPattern = f4elemf7f10f1f6f1
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f10f1f6.SetMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f10f1f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f10f1f6.SetOversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f10f1f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f10f1.SetJsonBody(f4elemf7f10f1f6)
+							f4elemf7f10f1.JsonBody = f4elemf7f10f1f6
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Method != nil {
-							f4elemf7f10f1f7 := &svcsdk.Method{}
-							f4elemf7f10f1.SetMethod(f4elemf7f10f1f7)
+							f4elemf7f10f1f7 := &svcsdktypes.Method{}
+							f4elemf7f10f1.Method = f4elemf7f10f1f7
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f10f1f8 := &svcsdk.QueryString{}
-							f4elemf7f10f1.SetQueryString(f4elemf7f10f1f8)
+							f4elemf7f10f1f8 := &svcsdktypes.QueryString{}
+							f4elemf7f10f1.QueryString = f4elemf7f10f1f8
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f10f1f9 := &svcsdk.SingleHeader{}
+							f4elemf7f10f1f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f10f1f9.SetName(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f10f1f9.Name = f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f10f1.SetSingleHeader(f4elemf7f10f1f9)
+							f4elemf7f10f1.SingleHeader = f4elemf7f10f1f9
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f10f1f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f10f1f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f10f1f10.SetName(*f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f10f1f10.Name = f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f10f1.SetSingleQueryArgument(f4elemf7f10f1f10)
+							f4elemf7f10f1.SingleQueryArgument = f4elemf7f10f1f10
 						}
 						if f4iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f10f1f11 := &svcsdk.UriPath{}
-							f4elemf7f10f1.SetUriPath(f4elemf7f10f1f11)
+							f4elemf7f10f1f11 := &svcsdktypes.UriPath{}
+							f4elemf7f10f1.UriPath = f4elemf7f10f1f11
 						}
-						f4elemf7f10.SetFieldToMatch(f4elemf7f10f1)
+						f4elemf7f10.FieldToMatch = f4elemf7f10f1
 					}
 					if f4iter.Statement.RegexPatternSetReferenceStatement.TextTransformations != nil {
-						f4elemf7f10f2 := []*svcsdk.TextTransformation{}
+						f4elemf7f10f2 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f10f2iter := range f4iter.Statement.RegexPatternSetReferenceStatement.TextTransformations {
-							f4elemf7f10f2elem := &svcsdk.TextTransformation{}
+							f4elemf7f10f2elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f10f2iter.Priority != nil {
-								f4elemf7f10f2elem.SetPriority(*f4elemf7f10f2iter.Priority)
+								priorityCopy0 := *f4elemf7f10f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f10f2elem.Priority = priorityCopy
 							}
 							if f4elemf7f10f2iter.Type != nil {
-								f4elemf7f10f2elem.SetType(*f4elemf7f10f2iter.Type)
+								f4elemf7f10f2elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f10f2iter.Type)
 							}
-							f4elemf7f10f2 = append(f4elemf7f10f2, f4elemf7f10f2elem)
+							f4elemf7f10f2 = append(f4elemf7f10f2, *f4elemf7f10f2elem)
 						}
-						f4elemf7f10.SetTextTransformations(f4elemf7f10f2)
+						f4elemf7f10.TextTransformations = f4elemf7f10f2
 					}
-					f4elemf7.SetRegexPatternSetReferenceStatement(f4elemf7f10)
+					f4elemf7.RegexPatternSetReferenceStatement = f4elemf7f10
 				}
 				if f4iter.Statement.RuleGroupReferenceStatement != nil {
-					f4elemf7f11 := &svcsdk.RuleGroupReferenceStatement{}
+					f4elemf7f11 := &svcsdktypes.RuleGroupReferenceStatement{}
 					if f4iter.Statement.RuleGroupReferenceStatement.ARN != nil {
-						f4elemf7f11.SetARN(*f4iter.Statement.RuleGroupReferenceStatement.ARN)
+						f4elemf7f11.ARN = f4iter.Statement.RuleGroupReferenceStatement.ARN
 					}
 					if f4iter.Statement.RuleGroupReferenceStatement.ExcludedRules != nil {
-						f4elemf7f11f1 := []*svcsdk.ExcludedRule{}
+						f4elemf7f11f1 := []svcsdktypes.ExcludedRule{}
 						for _, f4elemf7f11f1iter := range f4iter.Statement.RuleGroupReferenceStatement.ExcludedRules {
-							f4elemf7f11f1elem := &svcsdk.ExcludedRule{}
+							f4elemf7f11f1elem := &svcsdktypes.ExcludedRule{}
 							if f4elemf7f11f1iter.Name != nil {
-								f4elemf7f11f1elem.SetName(*f4elemf7f11f1iter.Name)
+								f4elemf7f11f1elem.Name = f4elemf7f11f1iter.Name
 							}
-							f4elemf7f11f1 = append(f4elemf7f11f1, f4elemf7f11f1elem)
+							f4elemf7f11f1 = append(f4elemf7f11f1, *f4elemf7f11f1elem)
 						}
-						f4elemf7f11.SetExcludedRules(f4elemf7f11f1)
+						f4elemf7f11.ExcludedRules = f4elemf7f11f1
 					}
 					if f4iter.Statement.RuleGroupReferenceStatement.RuleActionOverrides != nil {
-						f4elemf7f11f2 := []*svcsdk.RuleActionOverride{}
+						f4elemf7f11f2 := []svcsdktypes.RuleActionOverride{}
 						for _, f4elemf7f11f2iter := range f4iter.Statement.RuleGroupReferenceStatement.RuleActionOverrides {
-							f4elemf7f11f2elem := &svcsdk.RuleActionOverride{}
+							f4elemf7f11f2elem := &svcsdktypes.RuleActionOverride{}
 							if f4elemf7f11f2iter.ActionToUse != nil {
-								f4elemf7f11f2elemf0 := &svcsdk.RuleAction{}
+								f4elemf7f11f2elemf0 := &svcsdktypes.RuleAction{}
 								if f4elemf7f11f2iter.ActionToUse.Allow != nil {
-									f4elemf7f11f2elemf0f0 := &svcsdk.AllowAction{}
+									f4elemf7f11f2elemf0f0 := &svcsdktypes.AllowAction{}
 									if f4elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling != nil {
-										f4elemf7f11f2elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f11f2elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f11f2elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f11f2elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f11f2elemf0f0f0f0iter := range f4elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders {
-												f4elemf7f11f2elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f11f2elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f11f2elemf0f0f0f0iter.Name != nil {
-													f4elemf7f11f2elemf0f0f0f0elem.SetName(*f4elemf7f11f2elemf0f0f0f0iter.Name)
+													f4elemf7f11f2elemf0f0f0f0elem.Name = f4elemf7f11f2elemf0f0f0f0iter.Name
 												}
 												if f4elemf7f11f2elemf0f0f0f0iter.Value != nil {
-													f4elemf7f11f2elemf0f0f0f0elem.SetValue(*f4elemf7f11f2elemf0f0f0f0iter.Value)
+													f4elemf7f11f2elemf0f0f0f0elem.Value = f4elemf7f11f2elemf0f0f0f0iter.Value
 												}
-												f4elemf7f11f2elemf0f0f0f0 = append(f4elemf7f11f2elemf0f0f0f0, f4elemf7f11f2elemf0f0f0f0elem)
+												f4elemf7f11f2elemf0f0f0f0 = append(f4elemf7f11f2elemf0f0f0f0, *f4elemf7f11f2elemf0f0f0f0elem)
 											}
-											f4elemf7f11f2elemf0f0f0.SetInsertHeaders(f4elemf7f11f2elemf0f0f0f0)
+											f4elemf7f11f2elemf0f0f0.InsertHeaders = f4elemf7f11f2elemf0f0f0f0
 										}
-										f4elemf7f11f2elemf0f0.SetCustomRequestHandling(f4elemf7f11f2elemf0f0f0)
+										f4elemf7f11f2elemf0f0.CustomRequestHandling = f4elemf7f11f2elemf0f0f0
 									}
-									f4elemf7f11f2elemf0.SetAllow(f4elemf7f11f2elemf0f0)
+									f4elemf7f11f2elemf0.Allow = f4elemf7f11f2elemf0f0
 								}
 								if f4elemf7f11f2iter.ActionToUse.Block != nil {
-									f4elemf7f11f2elemf0f1 := &svcsdk.BlockAction{}
+									f4elemf7f11f2elemf0f1 := &svcsdktypes.BlockAction{}
 									if f4elemf7f11f2iter.ActionToUse.Block.CustomResponse != nil {
-										f4elemf7f11f2elemf0f1f0 := &svcsdk.CustomResponse{}
+										f4elemf7f11f2elemf0f1f0 := &svcsdktypes.CustomResponse{}
 										if f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey != nil {
-											f4elemf7f11f2elemf0f1f0.SetCustomResponseBodyKey(*f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey)
+											f4elemf7f11f2elemf0f1f0.CustomResponseBodyKey = f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f4elemf7f11f2elemf0f1f0.SetResponseCode(*f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											responseCodeCopy0 := *f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode
+											if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+											}
+											responseCodeCopy := int32(responseCodeCopy0)
+											f4elemf7f11f2elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
-											f4elemf7f11f2elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f11f2elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f11f2elemf0f1f0f2iter := range f4elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseHeaders {
-												f4elemf7f11f2elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f11f2elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f11f2elemf0f1f0f2iter.Name != nil {
-													f4elemf7f11f2elemf0f1f0f2elem.SetName(*f4elemf7f11f2elemf0f1f0f2iter.Name)
+													f4elemf7f11f2elemf0f1f0f2elem.Name = f4elemf7f11f2elemf0f1f0f2iter.Name
 												}
 												if f4elemf7f11f2elemf0f1f0f2iter.Value != nil {
-													f4elemf7f11f2elemf0f1f0f2elem.SetValue(*f4elemf7f11f2elemf0f1f0f2iter.Value)
+													f4elemf7f11f2elemf0f1f0f2elem.Value = f4elemf7f11f2elemf0f1f0f2iter.Value
 												}
-												f4elemf7f11f2elemf0f1f0f2 = append(f4elemf7f11f2elemf0f1f0f2, f4elemf7f11f2elemf0f1f0f2elem)
+												f4elemf7f11f2elemf0f1f0f2 = append(f4elemf7f11f2elemf0f1f0f2, *f4elemf7f11f2elemf0f1f0f2elem)
 											}
-											f4elemf7f11f2elemf0f1f0.SetResponseHeaders(f4elemf7f11f2elemf0f1f0f2)
+											f4elemf7f11f2elemf0f1f0.ResponseHeaders = f4elemf7f11f2elemf0f1f0f2
 										}
-										f4elemf7f11f2elemf0f1.SetCustomResponse(f4elemf7f11f2elemf0f1f0)
+										f4elemf7f11f2elemf0f1.CustomResponse = f4elemf7f11f2elemf0f1f0
 									}
-									f4elemf7f11f2elemf0.SetBlock(f4elemf7f11f2elemf0f1)
+									f4elemf7f11f2elemf0.Block = f4elemf7f11f2elemf0f1
 								}
 								if f4elemf7f11f2iter.ActionToUse.Captcha != nil {
-									f4elemf7f11f2elemf0f2 := &svcsdk.CaptchaAction{}
+									f4elemf7f11f2elemf0f2 := &svcsdktypes.CaptchaAction{}
 									if f4elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling != nil {
-										f4elemf7f11f2elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f11f2elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f11f2elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f11f2elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f11f2elemf0f2f0f0iter := range f4elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders {
-												f4elemf7f11f2elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f11f2elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f11f2elemf0f2f0f0iter.Name != nil {
-													f4elemf7f11f2elemf0f2f0f0elem.SetName(*f4elemf7f11f2elemf0f2f0f0iter.Name)
+													f4elemf7f11f2elemf0f2f0f0elem.Name = f4elemf7f11f2elemf0f2f0f0iter.Name
 												}
 												if f4elemf7f11f2elemf0f2f0f0iter.Value != nil {
-													f4elemf7f11f2elemf0f2f0f0elem.SetValue(*f4elemf7f11f2elemf0f2f0f0iter.Value)
+													f4elemf7f11f2elemf0f2f0f0elem.Value = f4elemf7f11f2elemf0f2f0f0iter.Value
 												}
-												f4elemf7f11f2elemf0f2f0f0 = append(f4elemf7f11f2elemf0f2f0f0, f4elemf7f11f2elemf0f2f0f0elem)
+												f4elemf7f11f2elemf0f2f0f0 = append(f4elemf7f11f2elemf0f2f0f0, *f4elemf7f11f2elemf0f2f0f0elem)
 											}
-											f4elemf7f11f2elemf0f2f0.SetInsertHeaders(f4elemf7f11f2elemf0f2f0f0)
+											f4elemf7f11f2elemf0f2f0.InsertHeaders = f4elemf7f11f2elemf0f2f0f0
 										}
-										f4elemf7f11f2elemf0f2.SetCustomRequestHandling(f4elemf7f11f2elemf0f2f0)
+										f4elemf7f11f2elemf0f2.CustomRequestHandling = f4elemf7f11f2elemf0f2f0
 									}
-									f4elemf7f11f2elemf0.SetCaptcha(f4elemf7f11f2elemf0f2)
+									f4elemf7f11f2elemf0.Captcha = f4elemf7f11f2elemf0f2
 								}
 								if f4elemf7f11f2iter.ActionToUse.Challenge != nil {
-									f4elemf7f11f2elemf0f3 := &svcsdk.ChallengeAction{}
+									f4elemf7f11f2elemf0f3 := &svcsdktypes.ChallengeAction{}
 									if f4elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling != nil {
-										f4elemf7f11f2elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f11f2elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f11f2elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f11f2elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f11f2elemf0f3f0f0iter := range f4elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders {
-												f4elemf7f11f2elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f11f2elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f11f2elemf0f3f0f0iter.Name != nil {
-													f4elemf7f11f2elemf0f3f0f0elem.SetName(*f4elemf7f11f2elemf0f3f0f0iter.Name)
+													f4elemf7f11f2elemf0f3f0f0elem.Name = f4elemf7f11f2elemf0f3f0f0iter.Name
 												}
 												if f4elemf7f11f2elemf0f3f0f0iter.Value != nil {
-													f4elemf7f11f2elemf0f3f0f0elem.SetValue(*f4elemf7f11f2elemf0f3f0f0iter.Value)
+													f4elemf7f11f2elemf0f3f0f0elem.Value = f4elemf7f11f2elemf0f3f0f0iter.Value
 												}
-												f4elemf7f11f2elemf0f3f0f0 = append(f4elemf7f11f2elemf0f3f0f0, f4elemf7f11f2elemf0f3f0f0elem)
+												f4elemf7f11f2elemf0f3f0f0 = append(f4elemf7f11f2elemf0f3f0f0, *f4elemf7f11f2elemf0f3f0f0elem)
 											}
-											f4elemf7f11f2elemf0f3f0.SetInsertHeaders(f4elemf7f11f2elemf0f3f0f0)
+											f4elemf7f11f2elemf0f3f0.InsertHeaders = f4elemf7f11f2elemf0f3f0f0
 										}
-										f4elemf7f11f2elemf0f3.SetCustomRequestHandling(f4elemf7f11f2elemf0f3f0)
+										f4elemf7f11f2elemf0f3.CustomRequestHandling = f4elemf7f11f2elemf0f3f0
 									}
-									f4elemf7f11f2elemf0.SetChallenge(f4elemf7f11f2elemf0f3)
+									f4elemf7f11f2elemf0.Challenge = f4elemf7f11f2elemf0f3
 								}
 								if f4elemf7f11f2iter.ActionToUse.Count != nil {
-									f4elemf7f11f2elemf0f4 := &svcsdk.CountAction{}
+									f4elemf7f11f2elemf0f4 := &svcsdktypes.CountAction{}
 									if f4elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling != nil {
-										f4elemf7f11f2elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+										f4elemf7f11f2elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 										if f4elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders != nil {
-											f4elemf7f11f2elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f4elemf7f11f2elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f4elemf7f11f2elemf0f4f0f0iter := range f4elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders {
-												f4elemf7f11f2elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f4elemf7f11f2elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f4elemf7f11f2elemf0f4f0f0iter.Name != nil {
-													f4elemf7f11f2elemf0f4f0f0elem.SetName(*f4elemf7f11f2elemf0f4f0f0iter.Name)
+													f4elemf7f11f2elemf0f4f0f0elem.Name = f4elemf7f11f2elemf0f4f0f0iter.Name
 												}
 												if f4elemf7f11f2elemf0f4f0f0iter.Value != nil {
-													f4elemf7f11f2elemf0f4f0f0elem.SetValue(*f4elemf7f11f2elemf0f4f0f0iter.Value)
+													f4elemf7f11f2elemf0f4f0f0elem.Value = f4elemf7f11f2elemf0f4f0f0iter.Value
 												}
-												f4elemf7f11f2elemf0f4f0f0 = append(f4elemf7f11f2elemf0f4f0f0, f4elemf7f11f2elemf0f4f0f0elem)
+												f4elemf7f11f2elemf0f4f0f0 = append(f4elemf7f11f2elemf0f4f0f0, *f4elemf7f11f2elemf0f4f0f0elem)
 											}
-											f4elemf7f11f2elemf0f4f0.SetInsertHeaders(f4elemf7f11f2elemf0f4f0f0)
+											f4elemf7f11f2elemf0f4f0.InsertHeaders = f4elemf7f11f2elemf0f4f0f0
 										}
-										f4elemf7f11f2elemf0f4.SetCustomRequestHandling(f4elemf7f11f2elemf0f4f0)
+										f4elemf7f11f2elemf0f4.CustomRequestHandling = f4elemf7f11f2elemf0f4f0
 									}
-									f4elemf7f11f2elemf0.SetCount(f4elemf7f11f2elemf0f4)
+									f4elemf7f11f2elemf0.Count = f4elemf7f11f2elemf0f4
 								}
-								f4elemf7f11f2elem.SetActionToUse(f4elemf7f11f2elemf0)
+								f4elemf7f11f2elem.ActionToUse = f4elemf7f11f2elemf0
 							}
 							if f4elemf7f11f2iter.Name != nil {
-								f4elemf7f11f2elem.SetName(*f4elemf7f11f2iter.Name)
+								f4elemf7f11f2elem.Name = f4elemf7f11f2iter.Name
 							}
-							f4elemf7f11f2 = append(f4elemf7f11f2, f4elemf7f11f2elem)
+							f4elemf7f11f2 = append(f4elemf7f11f2, *f4elemf7f11f2elem)
 						}
-						f4elemf7f11.SetRuleActionOverrides(f4elemf7f11f2)
+						f4elemf7f11.RuleActionOverrides = f4elemf7f11f2
 					}
-					f4elemf7.SetRuleGroupReferenceStatement(f4elemf7f11)
+					f4elemf7.RuleGroupReferenceStatement = f4elemf7f11
 				}
 				if f4iter.Statement.SizeConstraintStatement != nil {
-					f4elemf7f12 := &svcsdk.SizeConstraintStatement{}
+					f4elemf7f12 := &svcsdktypes.SizeConstraintStatement{}
 					if f4iter.Statement.SizeConstraintStatement.ComparisonOperator != nil {
-						f4elemf7f12.SetComparisonOperator(*f4iter.Statement.SizeConstraintStatement.ComparisonOperator)
+						f4elemf7f12.ComparisonOperator = svcsdktypes.ComparisonOperator(*f4iter.Statement.SizeConstraintStatement.ComparisonOperator)
 					}
 					if f4iter.Statement.SizeConstraintStatement.FieldToMatch != nil {
-						f4elemf7f12f1 := &svcsdk.FieldToMatch{}
+						f4elemf7f12f1 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f12f1f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f12f1.SetAllQueryArguments(f4elemf7f12f1f0)
+							f4elemf7f12f1f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f12f1.AllQueryArguments = f4elemf7f12f1f0
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Body != nil {
-							f4elemf7f12f1f1 := &svcsdk.Body{}
+							f4elemf7f12f1f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f12f1f1.SetOversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f12f1f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f12f1.SetBody(f4elemf7f12f1f1)
+							f4elemf7f12f1.Body = f4elemf7f12f1f1
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f12f1f2 := &svcsdk.Cookies{}
+							f4elemf7f12f1f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f12f1f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f12f1f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f12f1f2f0f0 := &svcsdk.All{}
-									f4elemf7f12f1f2f0.SetAll(f4elemf7f12f1f2f0f0)
+									f4elemf7f12f1f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f12f1f2f0.All = f4elemf7f12f1f2f0f0
 								}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f12f1f2f0f1 := []*string{}
-									for _, f4elemf7f12f1f2f0f1iter := range f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f12f1f2f0f1elem string
-										f4elemf7f12f1f2f0f1elem = *f4elemf7f12f1f2f0f1iter
-										f4elemf7f12f1f2f0f1 = append(f4elemf7f12f1f2f0f1, &f4elemf7f12f1f2f0f1elem)
-									}
-									f4elemf7f12f1f2f0.SetExcludedCookies(f4elemf7f12f1f2f0f1)
+									f4elemf7f12f1f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f12f1f2f0f2 := []*string{}
-									for _, f4elemf7f12f1f2f0f2iter := range f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f12f1f2f0f2elem string
-										f4elemf7f12f1f2f0f2elem = *f4elemf7f12f1f2f0f2iter
-										f4elemf7f12f1f2f0f2 = append(f4elemf7f12f1f2f0f2, &f4elemf7f12f1f2f0f2elem)
-									}
-									f4elemf7f12f1f2f0.SetIncludedCookies(f4elemf7f12f1f2f0f2)
+									f4elemf7f12f1f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f12f1f2.SetMatchPattern(f4elemf7f12f1f2f0)
+								f4elemf7f12f1f2.MatchPattern = f4elemf7f12f1f2f0
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f12f1f2.SetMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f12f1f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f12f1f2.SetOversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f12f1f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f12f1.SetCookies(f4elemf7f12f1f2)
+							f4elemf7f12f1.Cookies = f4elemf7f12f1f2
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f12f1f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f12f1f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f12f1f3.SetOversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f12f1f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f12f1.SetHeaderOrder(f4elemf7f12f1f3)
+							f4elemf7f12f1.HeaderOrder = f4elemf7f12f1f3
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers != nil {
-							f4elemf7f12f1f4 := &svcsdk.Headers{}
+							f4elemf7f12f1f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f12f1f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f12f1f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f12f1f4f0f0 := &svcsdk.All{}
-									f4elemf7f12f1f4f0.SetAll(f4elemf7f12f1f4f0f0)
+									f4elemf7f12f1f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f12f1f4f0.All = f4elemf7f12f1f4f0f0
 								}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f12f1f4f0f1 := []*string{}
-									for _, f4elemf7f12f1f4f0f1iter := range f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f12f1f4f0f1elem string
-										f4elemf7f12f1f4f0f1elem = *f4elemf7f12f1f4f0f1iter
-										f4elemf7f12f1f4f0f1 = append(f4elemf7f12f1f4f0f1, &f4elemf7f12f1f4f0f1elem)
-									}
-									f4elemf7f12f1f4f0.SetExcludedHeaders(f4elemf7f12f1f4f0f1)
+									f4elemf7f12f1f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f12f1f4f0f2 := []*string{}
-									for _, f4elemf7f12f1f4f0f2iter := range f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f12f1f4f0f2elem string
-										f4elemf7f12f1f4f0f2elem = *f4elemf7f12f1f4f0f2iter
-										f4elemf7f12f1f4f0f2 = append(f4elemf7f12f1f4f0f2, &f4elemf7f12f1f4f0f2elem)
-									}
-									f4elemf7f12f1f4f0.SetIncludedHeaders(f4elemf7f12f1f4f0f2)
+									f4elemf7f12f1f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f12f1f4.SetMatchPattern(f4elemf7f12f1f4f0)
+								f4elemf7f12f1f4.MatchPattern = f4elemf7f12f1f4f0
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f12f1f4.SetMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f12f1f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f12f1f4.SetOversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f12f1f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f12f1.SetHeaders(f4elemf7f12f1f4)
+							f4elemf7f12f1.Headers = f4elemf7f12f1f4
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f12f1f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f12f1f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f12f1f5.SetFallbackBehavior(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f12f1f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f12f1.SetJA3Fingerprint(f4elemf7f12f1f5)
+							f4elemf7f12f1.JA3Fingerprint = f4elemf7f12f1f5
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f12f1f6 := &svcsdk.JsonBody{}
+							f4elemf7f12f1f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f12f1f6.SetInvalidFallbackBehavior(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f12f1f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f12f1f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f12f1f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f12f1f6f1f0 := &svcsdk.All{}
-									f4elemf7f12f1f6f1.SetAll(f4elemf7f12f1f6f1f0)
+									f4elemf7f12f1f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f12f1f6f1.All = f4elemf7f12f1f6f1f0
 								}
 								if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f12f1f6f1f1 := []*string{}
-									for _, f4elemf7f12f1f6f1f1iter := range f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f12f1f6f1f1elem string
-										f4elemf7f12f1f6f1f1elem = *f4elemf7f12f1f6f1f1iter
-										f4elemf7f12f1f6f1f1 = append(f4elemf7f12f1f6f1f1, &f4elemf7f12f1f6f1f1elem)
-									}
-									f4elemf7f12f1f6f1.SetIncludedPaths(f4elemf7f12f1f6f1f1)
+									f4elemf7f12f1f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f12f1f6.SetMatchPattern(f4elemf7f12f1f6f1)
+								f4elemf7f12f1f6.MatchPattern = f4elemf7f12f1f6f1
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f12f1f6.SetMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f12f1f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f12f1f6.SetOversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f12f1f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f12f1.SetJsonBody(f4elemf7f12f1f6)
+							f4elemf7f12f1.JsonBody = f4elemf7f12f1f6
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.Method != nil {
-							f4elemf7f12f1f7 := &svcsdk.Method{}
-							f4elemf7f12f1.SetMethod(f4elemf7f12f1f7)
+							f4elemf7f12f1f7 := &svcsdktypes.Method{}
+							f4elemf7f12f1.Method = f4elemf7f12f1f7
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f12f1f8 := &svcsdk.QueryString{}
-							f4elemf7f12f1.SetQueryString(f4elemf7f12f1f8)
+							f4elemf7f12f1f8 := &svcsdktypes.QueryString{}
+							f4elemf7f12f1.QueryString = f4elemf7f12f1f8
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f12f1f9 := &svcsdk.SingleHeader{}
+							f4elemf7f12f1f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f12f1f9.SetName(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f12f1f9.Name = f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f12f1.SetSingleHeader(f4elemf7f12f1f9)
+							f4elemf7f12f1.SingleHeader = f4elemf7f12f1f9
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f12f1f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f12f1f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f12f1f10.SetName(*f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f12f1f10.Name = f4iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f12f1.SetSingleQueryArgument(f4elemf7f12f1f10)
+							f4elemf7f12f1.SingleQueryArgument = f4elemf7f12f1f10
 						}
 						if f4iter.Statement.SizeConstraintStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f12f1f11 := &svcsdk.UriPath{}
-							f4elemf7f12f1.SetUriPath(f4elemf7f12f1f11)
+							f4elemf7f12f1f11 := &svcsdktypes.UriPath{}
+							f4elemf7f12f1.UriPath = f4elemf7f12f1f11
 						}
-						f4elemf7f12.SetFieldToMatch(f4elemf7f12f1)
+						f4elemf7f12.FieldToMatch = f4elemf7f12f1
 					}
 					if f4iter.Statement.SizeConstraintStatement.Size != nil {
-						f4elemf7f12.SetSize(*f4iter.Statement.SizeConstraintStatement.Size)
+						f4elemf7f12.Size = *f4iter.Statement.SizeConstraintStatement.Size
 					}
 					if f4iter.Statement.SizeConstraintStatement.TextTransformations != nil {
-						f4elemf7f12f3 := []*svcsdk.TextTransformation{}
+						f4elemf7f12f3 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f12f3iter := range f4iter.Statement.SizeConstraintStatement.TextTransformations {
-							f4elemf7f12f3elem := &svcsdk.TextTransformation{}
+							f4elemf7f12f3elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f12f3iter.Priority != nil {
-								f4elemf7f12f3elem.SetPriority(*f4elemf7f12f3iter.Priority)
+								priorityCopy0 := *f4elemf7f12f3iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f12f3elem.Priority = priorityCopy
 							}
 							if f4elemf7f12f3iter.Type != nil {
-								f4elemf7f12f3elem.SetType(*f4elemf7f12f3iter.Type)
+								f4elemf7f12f3elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f12f3iter.Type)
 							}
-							f4elemf7f12f3 = append(f4elemf7f12f3, f4elemf7f12f3elem)
+							f4elemf7f12f3 = append(f4elemf7f12f3, *f4elemf7f12f3elem)
 						}
-						f4elemf7f12.SetTextTransformations(f4elemf7f12f3)
+						f4elemf7f12.TextTransformations = f4elemf7f12f3
 					}
-					f4elemf7.SetSizeConstraintStatement(f4elemf7f12)
+					f4elemf7.SizeConstraintStatement = f4elemf7f12
 				}
 				if f4iter.Statement.SQLIMatchStatement != nil {
-					f4elemf7f13 := &svcsdk.SqliMatchStatement{}
+					f4elemf7f13 := &svcsdktypes.SqliMatchStatement{}
 					if f4iter.Statement.SQLIMatchStatement.FieldToMatch != nil {
-						f4elemf7f13f0 := &svcsdk.FieldToMatch{}
+						f4elemf7f13f0 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f13f0f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f13f0.SetAllQueryArguments(f4elemf7f13f0f0)
+							f4elemf7f13f0f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f13f0.AllQueryArguments = f4elemf7f13f0f0
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Body != nil {
-							f4elemf7f13f0f1 := &svcsdk.Body{}
+							f4elemf7f13f0f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f13f0f1.SetOversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f13f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f13f0.SetBody(f4elemf7f13f0f1)
+							f4elemf7f13f0.Body = f4elemf7f13f0f1
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f13f0f2 := &svcsdk.Cookies{}
+							f4elemf7f13f0f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f13f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f13f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f13f0f2f0f0 := &svcsdk.All{}
-									f4elemf7f13f0f2f0.SetAll(f4elemf7f13f0f2f0f0)
+									f4elemf7f13f0f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f13f0f2f0.All = f4elemf7f13f0f2f0f0
 								}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f13f0f2f0f1 := []*string{}
-									for _, f4elemf7f13f0f2f0f1iter := range f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f13f0f2f0f1elem string
-										f4elemf7f13f0f2f0f1elem = *f4elemf7f13f0f2f0f1iter
-										f4elemf7f13f0f2f0f1 = append(f4elemf7f13f0f2f0f1, &f4elemf7f13f0f2f0f1elem)
-									}
-									f4elemf7f13f0f2f0.SetExcludedCookies(f4elemf7f13f0f2f0f1)
+									f4elemf7f13f0f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f13f0f2f0f2 := []*string{}
-									for _, f4elemf7f13f0f2f0f2iter := range f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f13f0f2f0f2elem string
-										f4elemf7f13f0f2f0f2elem = *f4elemf7f13f0f2f0f2iter
-										f4elemf7f13f0f2f0f2 = append(f4elemf7f13f0f2f0f2, &f4elemf7f13f0f2f0f2elem)
-									}
-									f4elemf7f13f0f2f0.SetIncludedCookies(f4elemf7f13f0f2f0f2)
+									f4elemf7f13f0f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f13f0f2.SetMatchPattern(f4elemf7f13f0f2f0)
+								f4elemf7f13f0f2.MatchPattern = f4elemf7f13f0f2f0
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f13f0f2.SetMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f13f0f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f13f0f2.SetOversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f13f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f13f0.SetCookies(f4elemf7f13f0f2)
+							f4elemf7f13f0.Cookies = f4elemf7f13f0f2
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f13f0f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f13f0f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f13f0f3.SetOversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f13f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f13f0.SetHeaderOrder(f4elemf7f13f0f3)
+							f4elemf7f13f0.HeaderOrder = f4elemf7f13f0f3
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers != nil {
-							f4elemf7f13f0f4 := &svcsdk.Headers{}
+							f4elemf7f13f0f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f13f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f13f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f13f0f4f0f0 := &svcsdk.All{}
-									f4elemf7f13f0f4f0.SetAll(f4elemf7f13f0f4f0f0)
+									f4elemf7f13f0f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f13f0f4f0.All = f4elemf7f13f0f4f0f0
 								}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f13f0f4f0f1 := []*string{}
-									for _, f4elemf7f13f0f4f0f1iter := range f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f13f0f4f0f1elem string
-										f4elemf7f13f0f4f0f1elem = *f4elemf7f13f0f4f0f1iter
-										f4elemf7f13f0f4f0f1 = append(f4elemf7f13f0f4f0f1, &f4elemf7f13f0f4f0f1elem)
-									}
-									f4elemf7f13f0f4f0.SetExcludedHeaders(f4elemf7f13f0f4f0f1)
+									f4elemf7f13f0f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f13f0f4f0f2 := []*string{}
-									for _, f4elemf7f13f0f4f0f2iter := range f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f13f0f4f0f2elem string
-										f4elemf7f13f0f4f0f2elem = *f4elemf7f13f0f4f0f2iter
-										f4elemf7f13f0f4f0f2 = append(f4elemf7f13f0f4f0f2, &f4elemf7f13f0f4f0f2elem)
-									}
-									f4elemf7f13f0f4f0.SetIncludedHeaders(f4elemf7f13f0f4f0f2)
+									f4elemf7f13f0f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f13f0f4.SetMatchPattern(f4elemf7f13f0f4f0)
+								f4elemf7f13f0f4.MatchPattern = f4elemf7f13f0f4f0
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f13f0f4.SetMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f13f0f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f13f0f4.SetOversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f13f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f13f0.SetHeaders(f4elemf7f13f0f4)
+							f4elemf7f13f0.Headers = f4elemf7f13f0f4
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f13f0f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f13f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f13f0f5.SetFallbackBehavior(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f13f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f13f0.SetJA3Fingerprint(f4elemf7f13f0f5)
+							f4elemf7f13f0.JA3Fingerprint = f4elemf7f13f0f5
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f13f0f6 := &svcsdk.JsonBody{}
+							f4elemf7f13f0f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f13f0f6.SetInvalidFallbackBehavior(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f13f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f13f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f13f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f13f0f6f1f0 := &svcsdk.All{}
-									f4elemf7f13f0f6f1.SetAll(f4elemf7f13f0f6f1f0)
+									f4elemf7f13f0f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f13f0f6f1.All = f4elemf7f13f0f6f1f0
 								}
 								if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f13f0f6f1f1 := []*string{}
-									for _, f4elemf7f13f0f6f1f1iter := range f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f13f0f6f1f1elem string
-										f4elemf7f13f0f6f1f1elem = *f4elemf7f13f0f6f1f1iter
-										f4elemf7f13f0f6f1f1 = append(f4elemf7f13f0f6f1f1, &f4elemf7f13f0f6f1f1elem)
-									}
-									f4elemf7f13f0f6f1.SetIncludedPaths(f4elemf7f13f0f6f1f1)
+									f4elemf7f13f0f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f13f0f6.SetMatchPattern(f4elemf7f13f0f6f1)
+								f4elemf7f13f0f6.MatchPattern = f4elemf7f13f0f6f1
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f13f0f6.SetMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f13f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f13f0f6.SetOversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f13f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f13f0.SetJsonBody(f4elemf7f13f0f6)
+							f4elemf7f13f0.JsonBody = f4elemf7f13f0f6
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.Method != nil {
-							f4elemf7f13f0f7 := &svcsdk.Method{}
-							f4elemf7f13f0.SetMethod(f4elemf7f13f0f7)
+							f4elemf7f13f0f7 := &svcsdktypes.Method{}
+							f4elemf7f13f0.Method = f4elemf7f13f0f7
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f13f0f8 := &svcsdk.QueryString{}
-							f4elemf7f13f0.SetQueryString(f4elemf7f13f0f8)
+							f4elemf7f13f0f8 := &svcsdktypes.QueryString{}
+							f4elemf7f13f0.QueryString = f4elemf7f13f0f8
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f13f0f9 := &svcsdk.SingleHeader{}
+							f4elemf7f13f0f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f13f0f9.SetName(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f13f0f9.Name = f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f13f0.SetSingleHeader(f4elemf7f13f0f9)
+							f4elemf7f13f0.SingleHeader = f4elemf7f13f0f9
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f13f0f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f13f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f13f0f10.SetName(*f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f13f0f10.Name = f4iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f13f0.SetSingleQueryArgument(f4elemf7f13f0f10)
+							f4elemf7f13f0.SingleQueryArgument = f4elemf7f13f0f10
 						}
 						if f4iter.Statement.SQLIMatchStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f13f0f11 := &svcsdk.UriPath{}
-							f4elemf7f13f0.SetUriPath(f4elemf7f13f0f11)
+							f4elemf7f13f0f11 := &svcsdktypes.UriPath{}
+							f4elemf7f13f0.UriPath = f4elemf7f13f0f11
 						}
-						f4elemf7f13.SetFieldToMatch(f4elemf7f13f0)
+						f4elemf7f13.FieldToMatch = f4elemf7f13f0
 					}
 					if f4iter.Statement.SQLIMatchStatement.SensitivityLevel != nil {
-						f4elemf7f13.SetSensitivityLevel(*f4iter.Statement.SQLIMatchStatement.SensitivityLevel)
+						f4elemf7f13.SensitivityLevel = svcsdktypes.SensitivityLevel(*f4iter.Statement.SQLIMatchStatement.SensitivityLevel)
 					}
 					if f4iter.Statement.SQLIMatchStatement.TextTransformations != nil {
-						f4elemf7f13f2 := []*svcsdk.TextTransformation{}
+						f4elemf7f13f2 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f13f2iter := range f4iter.Statement.SQLIMatchStatement.TextTransformations {
-							f4elemf7f13f2elem := &svcsdk.TextTransformation{}
+							f4elemf7f13f2elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f13f2iter.Priority != nil {
-								f4elemf7f13f2elem.SetPriority(*f4elemf7f13f2iter.Priority)
+								priorityCopy0 := *f4elemf7f13f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f13f2elem.Priority = priorityCopy
 							}
 							if f4elemf7f13f2iter.Type != nil {
-								f4elemf7f13f2elem.SetType(*f4elemf7f13f2iter.Type)
+								f4elemf7f13f2elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f13f2iter.Type)
 							}
-							f4elemf7f13f2 = append(f4elemf7f13f2, f4elemf7f13f2elem)
+							f4elemf7f13f2 = append(f4elemf7f13f2, *f4elemf7f13f2elem)
 						}
-						f4elemf7f13.SetTextTransformations(f4elemf7f13f2)
+						f4elemf7f13.TextTransformations = f4elemf7f13f2
 					}
-					f4elemf7.SetSqliMatchStatement(f4elemf7f13)
+					f4elemf7.SqliMatchStatement = f4elemf7f13
 				}
 				if f4iter.Statement.XSSMatchStatement != nil {
-					f4elemf7f14 := &svcsdk.XssMatchStatement{}
+					f4elemf7f14 := &svcsdktypes.XssMatchStatement{}
 					if f4iter.Statement.XSSMatchStatement.FieldToMatch != nil {
-						f4elemf7f14f0 := &svcsdk.FieldToMatch{}
+						f4elemf7f14f0 := &svcsdktypes.FieldToMatch{}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f4elemf7f14f0f0 := &svcsdk.AllQueryArguments{}
-							f4elemf7f14f0.SetAllQueryArguments(f4elemf7f14f0f0)
+							f4elemf7f14f0f0 := &svcsdktypes.AllQueryArguments{}
+							f4elemf7f14f0.AllQueryArguments = f4elemf7f14f0f0
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.Body != nil {
-							f4elemf7f14f0f1 := &svcsdk.Body{}
+							f4elemf7f14f0f1 := &svcsdktypes.Body{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f4elemf7f14f0f1.SetOversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f4elemf7f14f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f4elemf7f14f0.SetBody(f4elemf7f14f0f1)
+							f4elemf7f14f0.Body = f4elemf7f14f0f1
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies != nil {
-							f4elemf7f14f0f2 := &svcsdk.Cookies{}
+							f4elemf7f14f0f2 := &svcsdktypes.Cookies{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f4elemf7f14f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f4elemf7f14f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f4elemf7f14f0f2f0f0 := &svcsdk.All{}
-									f4elemf7f14f0f2f0.SetAll(f4elemf7f14f0f2f0f0)
+									f4elemf7f14f0f2f0f0 := &svcsdktypes.All{}
+									f4elemf7f14f0f2f0.All = f4elemf7f14f0f2f0f0
 								}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f4elemf7f14f0f2f0f1 := []*string{}
-									for _, f4elemf7f14f0f2f0f1iter := range f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f4elemf7f14f0f2f0f1elem string
-										f4elemf7f14f0f2f0f1elem = *f4elemf7f14f0f2f0f1iter
-										f4elemf7f14f0f2f0f1 = append(f4elemf7f14f0f2f0f1, &f4elemf7f14f0f2f0f1elem)
-									}
-									f4elemf7f14f0f2f0.SetExcludedCookies(f4elemf7f14f0f2f0f1)
+									f4elemf7f14f0f2f0.ExcludedCookies = aws.ToStringSlice(f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f4elemf7f14f0f2f0f2 := []*string{}
-									for _, f4elemf7f14f0f2f0f2iter := range f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f4elemf7f14f0f2f0f2elem string
-										f4elemf7f14f0f2f0f2elem = *f4elemf7f14f0f2f0f2iter
-										f4elemf7f14f0f2f0f2 = append(f4elemf7f14f0f2f0f2, &f4elemf7f14f0f2f0f2elem)
-									}
-									f4elemf7f14f0f2f0.SetIncludedCookies(f4elemf7f14f0f2f0f2)
+									f4elemf7f14f0f2f0.IncludedCookies = aws.ToStringSlice(f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f4elemf7f14f0f2.SetMatchPattern(f4elemf7f14f0f2f0)
+								f4elemf7f14f0f2.MatchPattern = f4elemf7f14f0f2f0
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f4elemf7f14f0f2.SetMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f4elemf7f14f0f2.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f4elemf7f14f0f2.SetOversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f4elemf7f14f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f4elemf7f14f0.SetCookies(f4elemf7f14f0f2)
+							f4elemf7f14f0.Cookies = f4elemf7f14f0f2
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f4elemf7f14f0f3 := &svcsdk.HeaderOrder{}
+							f4elemf7f14f0f3 := &svcsdktypes.HeaderOrder{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f4elemf7f14f0f3.SetOversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f4elemf7f14f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f4elemf7f14f0.SetHeaderOrder(f4elemf7f14f0f3)
+							f4elemf7f14f0.HeaderOrder = f4elemf7f14f0f3
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers != nil {
-							f4elemf7f14f0f4 := &svcsdk.Headers{}
+							f4elemf7f14f0f4 := &svcsdktypes.Headers{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f4elemf7f14f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f4elemf7f14f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f4elemf7f14f0f4f0f0 := &svcsdk.All{}
-									f4elemf7f14f0f4f0.SetAll(f4elemf7f14f0f4f0f0)
+									f4elemf7f14f0f4f0f0 := &svcsdktypes.All{}
+									f4elemf7f14f0f4f0.All = f4elemf7f14f0f4f0f0
 								}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f4elemf7f14f0f4f0f1 := []*string{}
-									for _, f4elemf7f14f0f4f0f1iter := range f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f4elemf7f14f0f4f0f1elem string
-										f4elemf7f14f0f4f0f1elem = *f4elemf7f14f0f4f0f1iter
-										f4elemf7f14f0f4f0f1 = append(f4elemf7f14f0f4f0f1, &f4elemf7f14f0f4f0f1elem)
-									}
-									f4elemf7f14f0f4f0.SetExcludedHeaders(f4elemf7f14f0f4f0f1)
+									f4elemf7f14f0f4f0.ExcludedHeaders = aws.ToStringSlice(f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f4elemf7f14f0f4f0f2 := []*string{}
-									for _, f4elemf7f14f0f4f0f2iter := range f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f4elemf7f14f0f4f0f2elem string
-										f4elemf7f14f0f4f0f2elem = *f4elemf7f14f0f4f0f2iter
-										f4elemf7f14f0f4f0f2 = append(f4elemf7f14f0f4f0f2, &f4elemf7f14f0f4f0f2elem)
-									}
-									f4elemf7f14f0f4f0.SetIncludedHeaders(f4elemf7f14f0f4f0f2)
+									f4elemf7f14f0f4f0.IncludedHeaders = aws.ToStringSlice(f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f4elemf7f14f0f4.SetMatchPattern(f4elemf7f14f0f4f0)
+								f4elemf7f14f0f4.MatchPattern = f4elemf7f14f0f4f0
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f4elemf7f14f0f4.SetMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope)
+								f4elemf7f14f0f4.MatchScope = svcsdktypes.MapMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f4elemf7f14f0f4.SetOversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f4elemf7f14f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f4elemf7f14f0.SetHeaders(f4elemf7f14f0f4)
+							f4elemf7f14f0.Headers = f4elemf7f14f0f4
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f4elemf7f14f0f5 := &svcsdk.JA3Fingerprint{}
+							f4elemf7f14f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f4elemf7f14f0f5.SetFallbackBehavior(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f4elemf7f14f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f4elemf7f14f0.SetJA3Fingerprint(f4elemf7f14f0f5)
+							f4elemf7f14f0.JA3Fingerprint = f4elemf7f14f0f5
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody != nil {
-							f4elemf7f14f0f6 := &svcsdk.JsonBody{}
+							f4elemf7f14f0f6 := &svcsdktypes.JsonBody{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f4elemf7f14f0f6.SetInvalidFallbackBehavior(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f4elemf7f14f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f4elemf7f14f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f4elemf7f14f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f4elemf7f14f0f6f1f0 := &svcsdk.All{}
-									f4elemf7f14f0f6f1.SetAll(f4elemf7f14f0f6f1f0)
+									f4elemf7f14f0f6f1f0 := &svcsdktypes.All{}
+									f4elemf7f14f0f6f1.All = f4elemf7f14f0f6f1f0
 								}
 								if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f4elemf7f14f0f6f1f1 := []*string{}
-									for _, f4elemf7f14f0f6f1f1iter := range f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f4elemf7f14f0f6f1f1elem string
-										f4elemf7f14f0f6f1f1elem = *f4elemf7f14f0f6f1f1iter
-										f4elemf7f14f0f6f1f1 = append(f4elemf7f14f0f6f1f1, &f4elemf7f14f0f6f1f1elem)
-									}
-									f4elemf7f14f0f6f1.SetIncludedPaths(f4elemf7f14f0f6f1f1)
+									f4elemf7f14f0f6f1.IncludedPaths = aws.ToStringSlice(f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f4elemf7f14f0f6.SetMatchPattern(f4elemf7f14f0f6f1)
+								f4elemf7f14f0f6.MatchPattern = f4elemf7f14f0f6f1
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f4elemf7f14f0f6.SetMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f4elemf7f14f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f4elemf7f14f0f6.SetOversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f4elemf7f14f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f4iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f4elemf7f14f0.SetJsonBody(f4elemf7f14f0f6)
+							f4elemf7f14f0.JsonBody = f4elemf7f14f0f6
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.Method != nil {
-							f4elemf7f14f0f7 := &svcsdk.Method{}
-							f4elemf7f14f0.SetMethod(f4elemf7f14f0f7)
+							f4elemf7f14f0f7 := &svcsdktypes.Method{}
+							f4elemf7f14f0.Method = f4elemf7f14f0f7
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.QueryString != nil {
-							f4elemf7f14f0f8 := &svcsdk.QueryString{}
-							f4elemf7f14f0.SetQueryString(f4elemf7f14f0f8)
+							f4elemf7f14f0f8 := &svcsdktypes.QueryString{}
+							f4elemf7f14f0.QueryString = f4elemf7f14f0f8
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader != nil {
-							f4elemf7f14f0f9 := &svcsdk.SingleHeader{}
+							f4elemf7f14f0f9 := &svcsdktypes.SingleHeader{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f4elemf7f14f0f9.SetName(*f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name)
+								f4elemf7f14f0f9.Name = f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f4elemf7f14f0.SetSingleHeader(f4elemf7f14f0f9)
+							f4elemf7f14f0.SingleHeader = f4elemf7f14f0f9
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f4elemf7f14f0f10 := &svcsdk.SingleQueryArgument{}
+							f4elemf7f14f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f4elemf7f14f0f10.SetName(*f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f4elemf7f14f0f10.Name = f4iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f4elemf7f14f0.SetSingleQueryArgument(f4elemf7f14f0f10)
+							f4elemf7f14f0.SingleQueryArgument = f4elemf7f14f0f10
 						}
 						if f4iter.Statement.XSSMatchStatement.FieldToMatch.URIPath != nil {
-							f4elemf7f14f0f11 := &svcsdk.UriPath{}
-							f4elemf7f14f0.SetUriPath(f4elemf7f14f0f11)
+							f4elemf7f14f0f11 := &svcsdktypes.UriPath{}
+							f4elemf7f14f0.UriPath = f4elemf7f14f0f11
 						}
-						f4elemf7f14.SetFieldToMatch(f4elemf7f14f0)
+						f4elemf7f14.FieldToMatch = f4elemf7f14f0
 					}
 					if f4iter.Statement.XSSMatchStatement.TextTransformations != nil {
-						f4elemf7f14f1 := []*svcsdk.TextTransformation{}
+						f4elemf7f14f1 := []svcsdktypes.TextTransformation{}
 						for _, f4elemf7f14f1iter := range f4iter.Statement.XSSMatchStatement.TextTransformations {
-							f4elemf7f14f1elem := &svcsdk.TextTransformation{}
+							f4elemf7f14f1elem := &svcsdktypes.TextTransformation{}
 							if f4elemf7f14f1iter.Priority != nil {
-								f4elemf7f14f1elem.SetPriority(*f4elemf7f14f1iter.Priority)
+								priorityCopy0 := *f4elemf7f14f1iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f4elemf7f14f1elem.Priority = priorityCopy
 							}
 							if f4elemf7f14f1iter.Type != nil {
-								f4elemf7f14f1elem.SetType(*f4elemf7f14f1iter.Type)
+								f4elemf7f14f1elem.Type = svcsdktypes.TextTransformationType(*f4elemf7f14f1iter.Type)
 							}
-							f4elemf7f14f1 = append(f4elemf7f14f1, f4elemf7f14f1elem)
+							f4elemf7f14f1 = append(f4elemf7f14f1, *f4elemf7f14f1elem)
 						}
-						f4elemf7f14.SetTextTransformations(f4elemf7f14f1)
+						f4elemf7f14.TextTransformations = f4elemf7f14f1
 					}
-					f4elemf7.SetXssMatchStatement(f4elemf7f14)
+					f4elemf7.XssMatchStatement = f4elemf7f14
 				}
-				f4elem.SetStatement(f4elemf7)
+				f4elem.Statement = f4elemf7
 			}
 			if f4iter.VisibilityConfig != nil {
-				f4elemf8 := &svcsdk.VisibilityConfig{}
+				f4elemf8 := &svcsdktypes.VisibilityConfig{}
 				if f4iter.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-					f4elemf8.SetCloudWatchMetricsEnabled(*f4iter.VisibilityConfig.CloudWatchMetricsEnabled)
+					f4elemf8.CloudWatchMetricsEnabled = *f4iter.VisibilityConfig.CloudWatchMetricsEnabled
 				}
 				if f4iter.VisibilityConfig.MetricName != nil {
-					f4elemf8.SetMetricName(*f4iter.VisibilityConfig.MetricName)
+					f4elemf8.MetricName = f4iter.VisibilityConfig.MetricName
 				}
 				if f4iter.VisibilityConfig.SampledRequestsEnabled != nil {
-					f4elemf8.SetSampledRequestsEnabled(*f4iter.VisibilityConfig.SampledRequestsEnabled)
+					f4elemf8.SampledRequestsEnabled = *f4iter.VisibilityConfig.SampledRequestsEnabled
 				}
-				f4elem.SetVisibilityConfig(f4elemf8)
+				f4elem.VisibilityConfig = f4elemf8
 			}
-			f4 = append(f4, f4elem)
+			f4 = append(f4, *f4elem)
 		}
-		res.SetRules(f4)
+		res.Rules = f4
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 	if r.ko.Spec.Tags != nil {
-		f6 := []*svcsdk.Tag{}
+		f6 := []svcsdktypes.Tag{}
 		for _, f6iter := range r.ko.Spec.Tags {
-			f6elem := &svcsdk.Tag{}
+			f6elem := &svcsdktypes.Tag{}
 			if f6iter.Key != nil {
-				f6elem.SetKey(*f6iter.Key)
+				f6elem.Key = f6iter.Key
 			}
 			if f6iter.Value != nil {
-				f6elem.SetValue(*f6iter.Value)
+				f6elem.Value = f6iter.Value
 			}
-			f6 = append(f6, f6elem)
+			f6 = append(f6, *f6elem)
 		}
-		res.SetTags(f6)
+		res.Tags = f6
 	}
 	if r.ko.Spec.VisibilityConfig != nil {
-		f7 := &svcsdk.VisibilityConfig{}
+		f7 := &svcsdktypes.VisibilityConfig{}
 		if r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-			f7.SetCloudWatchMetricsEnabled(*r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled)
+			f7.CloudWatchMetricsEnabled = *r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled
 		}
 		if r.ko.Spec.VisibilityConfig.MetricName != nil {
-			f7.SetMetricName(*r.ko.Spec.VisibilityConfig.MetricName)
+			f7.MetricName = r.ko.Spec.VisibilityConfig.MetricName
 		}
 		if r.ko.Spec.VisibilityConfig.SampledRequestsEnabled != nil {
-			f7.SetSampledRequestsEnabled(*r.ko.Spec.VisibilityConfig.SampledRequestsEnabled)
+			f7.SampledRequestsEnabled = *r.ko.Spec.VisibilityConfig.SampledRequestsEnabled
 		}
-		res.SetVisibilityConfig(f7)
+		res.VisibilityConfig = f7
 	}
 
 	return res, nil
@@ -4592,7 +4163,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateRuleGroup", err)
 	if err != nil {
 		return nil, err
@@ -4615,2165 +4186,2008 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateRuleGroupInput{}
 
 	if r.ko.Spec.CustomResponseBodies != nil {
-		f0 := map[string]*svcsdk.CustomResponseBody{}
+		f0 := map[string]svcsdktypes.CustomResponseBody{}
 		for f0key, f0valiter := range r.ko.Spec.CustomResponseBodies {
-			f0val := &svcsdk.CustomResponseBody{}
+			f0val := &svcsdktypes.CustomResponseBody{}
 			if f0valiter.Content != nil {
-				f0val.SetContent(*f0valiter.Content)
+				f0val.Content = f0valiter.Content
 			}
 			if f0valiter.ContentType != nil {
-				f0val.SetContentType(*f0valiter.ContentType)
+				f0val.ContentType = svcsdktypes.ResponseContentType(*f0valiter.ContentType)
 			}
-			f0[f0key] = f0val
+			f0[f0key] = *f0val
 		}
-		res.SetCustomResponseBodies(f0)
+		res.CustomResponseBodies = f0
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Status.LockToken != nil {
-		res.SetLockToken(*r.ko.Status.LockToken)
+		res.LockToken = r.ko.Status.LockToken
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Rules != nil {
-		f5 := []*svcsdk.Rule{}
+		f5 := []svcsdktypes.Rule{}
 		for _, f5iter := range r.ko.Spec.Rules {
-			f5elem := &svcsdk.Rule{}
+			f5elem := &svcsdktypes.Rule{}
 			if f5iter.Action != nil {
-				f5elemf0 := &svcsdk.RuleAction{}
+				f5elemf0 := &svcsdktypes.RuleAction{}
 				if f5iter.Action.Allow != nil {
-					f5elemf0f0 := &svcsdk.AllowAction{}
+					f5elemf0f0 := &svcsdktypes.AllowAction{}
 					if f5iter.Action.Allow.CustomRequestHandling != nil {
-						f5elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+						f5elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 						if f5iter.Action.Allow.CustomRequestHandling.InsertHeaders != nil {
-							f5elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf0f0f0f0iter := range f5iter.Action.Allow.CustomRequestHandling.InsertHeaders {
-								f5elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf0f0f0f0iter.Name != nil {
-									f5elemf0f0f0f0elem.SetName(*f5elemf0f0f0f0iter.Name)
+									f5elemf0f0f0f0elem.Name = f5elemf0f0f0f0iter.Name
 								}
 								if f5elemf0f0f0f0iter.Value != nil {
-									f5elemf0f0f0f0elem.SetValue(*f5elemf0f0f0f0iter.Value)
+									f5elemf0f0f0f0elem.Value = f5elemf0f0f0f0iter.Value
 								}
-								f5elemf0f0f0f0 = append(f5elemf0f0f0f0, f5elemf0f0f0f0elem)
+								f5elemf0f0f0f0 = append(f5elemf0f0f0f0, *f5elemf0f0f0f0elem)
 							}
-							f5elemf0f0f0.SetInsertHeaders(f5elemf0f0f0f0)
+							f5elemf0f0f0.InsertHeaders = f5elemf0f0f0f0
 						}
-						f5elemf0f0.SetCustomRequestHandling(f5elemf0f0f0)
+						f5elemf0f0.CustomRequestHandling = f5elemf0f0f0
 					}
-					f5elemf0.SetAllow(f5elemf0f0)
+					f5elemf0.Allow = f5elemf0f0
 				}
 				if f5iter.Action.Block != nil {
-					f5elemf0f1 := &svcsdk.BlockAction{}
+					f5elemf0f1 := &svcsdktypes.BlockAction{}
 					if f5iter.Action.Block.CustomResponse != nil {
-						f5elemf0f1f0 := &svcsdk.CustomResponse{}
+						f5elemf0f1f0 := &svcsdktypes.CustomResponse{}
 						if f5iter.Action.Block.CustomResponse.CustomResponseBodyKey != nil {
-							f5elemf0f1f0.SetCustomResponseBodyKey(*f5iter.Action.Block.CustomResponse.CustomResponseBodyKey)
+							f5elemf0f1f0.CustomResponseBodyKey = f5iter.Action.Block.CustomResponse.CustomResponseBodyKey
 						}
 						if f5iter.Action.Block.CustomResponse.ResponseCode != nil {
-							f5elemf0f1f0.SetResponseCode(*f5iter.Action.Block.CustomResponse.ResponseCode)
+							responseCodeCopy0 := *f5iter.Action.Block.CustomResponse.ResponseCode
+							if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+							}
+							responseCodeCopy := int32(responseCodeCopy0)
+							f5elemf0f1f0.ResponseCode = &responseCodeCopy
 						}
 						if f5iter.Action.Block.CustomResponse.ResponseHeaders != nil {
-							f5elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf0f1f0f2iter := range f5iter.Action.Block.CustomResponse.ResponseHeaders {
-								f5elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf0f1f0f2iter.Name != nil {
-									f5elemf0f1f0f2elem.SetName(*f5elemf0f1f0f2iter.Name)
+									f5elemf0f1f0f2elem.Name = f5elemf0f1f0f2iter.Name
 								}
 								if f5elemf0f1f0f2iter.Value != nil {
-									f5elemf0f1f0f2elem.SetValue(*f5elemf0f1f0f2iter.Value)
+									f5elemf0f1f0f2elem.Value = f5elemf0f1f0f2iter.Value
 								}
-								f5elemf0f1f0f2 = append(f5elemf0f1f0f2, f5elemf0f1f0f2elem)
+								f5elemf0f1f0f2 = append(f5elemf0f1f0f2, *f5elemf0f1f0f2elem)
 							}
-							f5elemf0f1f0.SetResponseHeaders(f5elemf0f1f0f2)
+							f5elemf0f1f0.ResponseHeaders = f5elemf0f1f0f2
 						}
-						f5elemf0f1.SetCustomResponse(f5elemf0f1f0)
+						f5elemf0f1.CustomResponse = f5elemf0f1f0
 					}
-					f5elemf0.SetBlock(f5elemf0f1)
+					f5elemf0.Block = f5elemf0f1
 				}
 				if f5iter.Action.Captcha != nil {
-					f5elemf0f2 := &svcsdk.CaptchaAction{}
+					f5elemf0f2 := &svcsdktypes.CaptchaAction{}
 					if f5iter.Action.Captcha.CustomRequestHandling != nil {
-						f5elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+						f5elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 						if f5iter.Action.Captcha.CustomRequestHandling.InsertHeaders != nil {
-							f5elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf0f2f0f0iter := range f5iter.Action.Captcha.CustomRequestHandling.InsertHeaders {
-								f5elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf0f2f0f0iter.Name != nil {
-									f5elemf0f2f0f0elem.SetName(*f5elemf0f2f0f0iter.Name)
+									f5elemf0f2f0f0elem.Name = f5elemf0f2f0f0iter.Name
 								}
 								if f5elemf0f2f0f0iter.Value != nil {
-									f5elemf0f2f0f0elem.SetValue(*f5elemf0f2f0f0iter.Value)
+									f5elemf0f2f0f0elem.Value = f5elemf0f2f0f0iter.Value
 								}
-								f5elemf0f2f0f0 = append(f5elemf0f2f0f0, f5elemf0f2f0f0elem)
+								f5elemf0f2f0f0 = append(f5elemf0f2f0f0, *f5elemf0f2f0f0elem)
 							}
-							f5elemf0f2f0.SetInsertHeaders(f5elemf0f2f0f0)
+							f5elemf0f2f0.InsertHeaders = f5elemf0f2f0f0
 						}
-						f5elemf0f2.SetCustomRequestHandling(f5elemf0f2f0)
+						f5elemf0f2.CustomRequestHandling = f5elemf0f2f0
 					}
-					f5elemf0.SetCaptcha(f5elemf0f2)
+					f5elemf0.Captcha = f5elemf0f2
 				}
 				if f5iter.Action.Challenge != nil {
-					f5elemf0f3 := &svcsdk.ChallengeAction{}
+					f5elemf0f3 := &svcsdktypes.ChallengeAction{}
 					if f5iter.Action.Challenge.CustomRequestHandling != nil {
-						f5elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+						f5elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 						if f5iter.Action.Challenge.CustomRequestHandling.InsertHeaders != nil {
-							f5elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf0f3f0f0iter := range f5iter.Action.Challenge.CustomRequestHandling.InsertHeaders {
-								f5elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf0f3f0f0iter.Name != nil {
-									f5elemf0f3f0f0elem.SetName(*f5elemf0f3f0f0iter.Name)
+									f5elemf0f3f0f0elem.Name = f5elemf0f3f0f0iter.Name
 								}
 								if f5elemf0f3f0f0iter.Value != nil {
-									f5elemf0f3f0f0elem.SetValue(*f5elemf0f3f0f0iter.Value)
+									f5elemf0f3f0f0elem.Value = f5elemf0f3f0f0iter.Value
 								}
-								f5elemf0f3f0f0 = append(f5elemf0f3f0f0, f5elemf0f3f0f0elem)
+								f5elemf0f3f0f0 = append(f5elemf0f3f0f0, *f5elemf0f3f0f0elem)
 							}
-							f5elemf0f3f0.SetInsertHeaders(f5elemf0f3f0f0)
+							f5elemf0f3f0.InsertHeaders = f5elemf0f3f0f0
 						}
-						f5elemf0f3.SetCustomRequestHandling(f5elemf0f3f0)
+						f5elemf0f3.CustomRequestHandling = f5elemf0f3f0
 					}
-					f5elemf0.SetChallenge(f5elemf0f3)
+					f5elemf0.Challenge = f5elemf0f3
 				}
 				if f5iter.Action.Count != nil {
-					f5elemf0f4 := &svcsdk.CountAction{}
+					f5elemf0f4 := &svcsdktypes.CountAction{}
 					if f5iter.Action.Count.CustomRequestHandling != nil {
-						f5elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+						f5elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 						if f5iter.Action.Count.CustomRequestHandling.InsertHeaders != nil {
-							f5elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf0f4f0f0iter := range f5iter.Action.Count.CustomRequestHandling.InsertHeaders {
-								f5elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf0f4f0f0iter.Name != nil {
-									f5elemf0f4f0f0elem.SetName(*f5elemf0f4f0f0iter.Name)
+									f5elemf0f4f0f0elem.Name = f5elemf0f4f0f0iter.Name
 								}
 								if f5elemf0f4f0f0iter.Value != nil {
-									f5elemf0f4f0f0elem.SetValue(*f5elemf0f4f0f0iter.Value)
+									f5elemf0f4f0f0elem.Value = f5elemf0f4f0f0iter.Value
 								}
-								f5elemf0f4f0f0 = append(f5elemf0f4f0f0, f5elemf0f4f0f0elem)
+								f5elemf0f4f0f0 = append(f5elemf0f4f0f0, *f5elemf0f4f0f0elem)
 							}
-							f5elemf0f4f0.SetInsertHeaders(f5elemf0f4f0f0)
+							f5elemf0f4f0.InsertHeaders = f5elemf0f4f0f0
 						}
-						f5elemf0f4.SetCustomRequestHandling(f5elemf0f4f0)
+						f5elemf0f4.CustomRequestHandling = f5elemf0f4f0
 					}
-					f5elemf0.SetCount(f5elemf0f4)
+					f5elemf0.Count = f5elemf0f4
 				}
-				f5elem.SetAction(f5elemf0)
+				f5elem.Action = f5elemf0
 			}
 			if f5iter.CaptchaConfig != nil {
-				f5elemf1 := &svcsdk.CaptchaConfig{}
+				f5elemf1 := &svcsdktypes.CaptchaConfig{}
 				if f5iter.CaptchaConfig.ImmunityTimeProperty != nil {
-					f5elemf1f0 := &svcsdk.ImmunityTimeProperty{}
+					f5elemf1f0 := &svcsdktypes.ImmunityTimeProperty{}
 					if f5iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime != nil {
-						f5elemf1f0.SetImmunityTime(*f5iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime)
+						f5elemf1f0.ImmunityTime = f5iter.CaptchaConfig.ImmunityTimeProperty.ImmunityTime
 					}
-					f5elemf1.SetImmunityTimeProperty(f5elemf1f0)
+					f5elemf1.ImmunityTimeProperty = f5elemf1f0
 				}
-				f5elem.SetCaptchaConfig(f5elemf1)
+				f5elem.CaptchaConfig = f5elemf1
 			}
 			if f5iter.ChallengeConfig != nil {
-				f5elemf2 := &svcsdk.ChallengeConfig{}
+				f5elemf2 := &svcsdktypes.ChallengeConfig{}
 				if f5iter.ChallengeConfig.ImmunityTimeProperty != nil {
-					f5elemf2f0 := &svcsdk.ImmunityTimeProperty{}
+					f5elemf2f0 := &svcsdktypes.ImmunityTimeProperty{}
 					if f5iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime != nil {
-						f5elemf2f0.SetImmunityTime(*f5iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime)
+						f5elemf2f0.ImmunityTime = f5iter.ChallengeConfig.ImmunityTimeProperty.ImmunityTime
 					}
-					f5elemf2.SetImmunityTimeProperty(f5elemf2f0)
+					f5elemf2.ImmunityTimeProperty = f5elemf2f0
 				}
-				f5elem.SetChallengeConfig(f5elemf2)
+				f5elem.ChallengeConfig = f5elemf2
 			}
 			if f5iter.Name != nil {
-				f5elem.SetName(*f5iter.Name)
+				f5elem.Name = f5iter.Name
 			}
 			if f5iter.OverrideAction != nil {
-				f5elemf4 := &svcsdk.OverrideAction{}
+				f5elemf4 := &svcsdktypes.OverrideAction{}
 				if f5iter.OverrideAction.Count != nil {
-					f5elemf4f0 := &svcsdk.CountAction{}
+					f5elemf4f0 := &svcsdktypes.CountAction{}
 					if f5iter.OverrideAction.Count.CustomRequestHandling != nil {
-						f5elemf4f0f0 := &svcsdk.CustomRequestHandling{}
+						f5elemf4f0f0 := &svcsdktypes.CustomRequestHandling{}
 						if f5iter.OverrideAction.Count.CustomRequestHandling.InsertHeaders != nil {
-							f5elemf4f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+							f5elemf4f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 							for _, f5elemf4f0f0f0iter := range f5iter.OverrideAction.Count.CustomRequestHandling.InsertHeaders {
-								f5elemf4f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+								f5elemf4f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 								if f5elemf4f0f0f0iter.Name != nil {
-									f5elemf4f0f0f0elem.SetName(*f5elemf4f0f0f0iter.Name)
+									f5elemf4f0f0f0elem.Name = f5elemf4f0f0f0iter.Name
 								}
 								if f5elemf4f0f0f0iter.Value != nil {
-									f5elemf4f0f0f0elem.SetValue(*f5elemf4f0f0f0iter.Value)
+									f5elemf4f0f0f0elem.Value = f5elemf4f0f0f0iter.Value
 								}
-								f5elemf4f0f0f0 = append(f5elemf4f0f0f0, f5elemf4f0f0f0elem)
+								f5elemf4f0f0f0 = append(f5elemf4f0f0f0, *f5elemf4f0f0f0elem)
 							}
-							f5elemf4f0f0.SetInsertHeaders(f5elemf4f0f0f0)
+							f5elemf4f0f0.InsertHeaders = f5elemf4f0f0f0
 						}
-						f5elemf4f0.SetCustomRequestHandling(f5elemf4f0f0)
+						f5elemf4f0.CustomRequestHandling = f5elemf4f0f0
 					}
-					f5elemf4.SetCount(f5elemf4f0)
+					f5elemf4.Count = f5elemf4f0
 				}
 				if f5iter.OverrideAction.None != nil {
-					f5elemf4f1 := &svcsdk.NoneAction{}
-					f5elemf4.SetNone(f5elemf4f1)
+					f5elemf4f1 := &svcsdktypes.NoneAction{}
+					f5elemf4.None = f5elemf4f1
 				}
-				f5elem.SetOverrideAction(f5elemf4)
+				f5elem.OverrideAction = f5elemf4
 			}
 			if f5iter.Priority != nil {
-				f5elem.SetPriority(*f5iter.Priority)
+				priorityCopy0 := *f5iter.Priority
+				if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+					return nil, fmt.Errorf("error: field Priority is of type int32")
+				}
+				priorityCopy := int32(priorityCopy0)
+				f5elem.Priority = priorityCopy
 			}
 			if f5iter.RuleLabels != nil {
-				f5elemf6 := []*svcsdk.Label{}
+				f5elemf6 := []svcsdktypes.Label{}
 				for _, f5elemf6iter := range f5iter.RuleLabels {
-					f5elemf6elem := &svcsdk.Label{}
+					f5elemf6elem := &svcsdktypes.Label{}
 					if f5elemf6iter.Name != nil {
-						f5elemf6elem.SetName(*f5elemf6iter.Name)
+						f5elemf6elem.Name = f5elemf6iter.Name
 					}
-					f5elemf6 = append(f5elemf6, f5elemf6elem)
+					f5elemf6 = append(f5elemf6, *f5elemf6elem)
 				}
-				f5elem.SetRuleLabels(f5elemf6)
+				f5elem.RuleLabels = f5elemf6
 			}
 			if f5iter.Statement != nil {
-				f5elemf7 := &svcsdk.Statement{}
+				f5elemf7 := &svcsdktypes.Statement{}
 				if f5iter.Statement.ByteMatchStatement != nil {
-					f5elemf7f1 := &svcsdk.ByteMatchStatement{}
+					f5elemf7f1 := &svcsdktypes.ByteMatchStatement{}
 					if f5iter.Statement.ByteMatchStatement.FieldToMatch != nil {
-						f5elemf7f1f0 := &svcsdk.FieldToMatch{}
+						f5elemf7f1f0 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f1f0f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f1f0.SetAllQueryArguments(f5elemf7f1f0f0)
+							f5elemf7f1f0f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f1f0.AllQueryArguments = f5elemf7f1f0f0
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.Body != nil {
-							f5elemf7f1f0f1 := &svcsdk.Body{}
+							f5elemf7f1f0f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f1f0f1.SetOversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f1f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f1f0.SetBody(f5elemf7f1f0f1)
+							f5elemf7f1f0.Body = f5elemf7f1f0f1
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f1f0f2 := &svcsdk.Cookies{}
+							f5elemf7f1f0f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f1f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f1f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f1f0f2f0f0 := &svcsdk.All{}
-									f5elemf7f1f0f2f0.SetAll(f5elemf7f1f0f2f0f0)
+									f5elemf7f1f0f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f1f0f2f0.All = f5elemf7f1f0f2f0f0
 								}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f1f0f2f0f1 := []*string{}
-									for _, f5elemf7f1f0f2f0f1iter := range f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f1f0f2f0f1elem string
-										f5elemf7f1f0f2f0f1elem = *f5elemf7f1f0f2f0f1iter
-										f5elemf7f1f0f2f0f1 = append(f5elemf7f1f0f2f0f1, &f5elemf7f1f0f2f0f1elem)
-									}
-									f5elemf7f1f0f2f0.SetExcludedCookies(f5elemf7f1f0f2f0f1)
+									f5elemf7f1f0f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f1f0f2f0f2 := []*string{}
-									for _, f5elemf7f1f0f2f0f2iter := range f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f1f0f2f0f2elem string
-										f5elemf7f1f0f2f0f2elem = *f5elemf7f1f0f2f0f2iter
-										f5elemf7f1f0f2f0f2 = append(f5elemf7f1f0f2f0f2, &f5elemf7f1f0f2f0f2elem)
-									}
-									f5elemf7f1f0f2f0.SetIncludedCookies(f5elemf7f1f0f2f0f2)
+									f5elemf7f1f0f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f1f0f2.SetMatchPattern(f5elemf7f1f0f2f0)
+								f5elemf7f1f0f2.MatchPattern = f5elemf7f1f0f2f0
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f1f0f2.SetMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f1f0f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f1f0f2.SetOversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f1f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f1f0.SetCookies(f5elemf7f1f0f2)
+							f5elemf7f1f0.Cookies = f5elemf7f1f0f2
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f1f0f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f1f0f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f1f0f3.SetOversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f1f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f1f0.SetHeaderOrder(f5elemf7f1f0f3)
+							f5elemf7f1f0.HeaderOrder = f5elemf7f1f0f3
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers != nil {
-							f5elemf7f1f0f4 := &svcsdk.Headers{}
+							f5elemf7f1f0f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f1f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f1f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f1f0f4f0f0 := &svcsdk.All{}
-									f5elemf7f1f0f4f0.SetAll(f5elemf7f1f0f4f0f0)
+									f5elemf7f1f0f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f1f0f4f0.All = f5elemf7f1f0f4f0f0
 								}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f1f0f4f0f1 := []*string{}
-									for _, f5elemf7f1f0f4f0f1iter := range f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f1f0f4f0f1elem string
-										f5elemf7f1f0f4f0f1elem = *f5elemf7f1f0f4f0f1iter
-										f5elemf7f1f0f4f0f1 = append(f5elemf7f1f0f4f0f1, &f5elemf7f1f0f4f0f1elem)
-									}
-									f5elemf7f1f0f4f0.SetExcludedHeaders(f5elemf7f1f0f4f0f1)
+									f5elemf7f1f0f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f1f0f4f0f2 := []*string{}
-									for _, f5elemf7f1f0f4f0f2iter := range f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f1f0f4f0f2elem string
-										f5elemf7f1f0f4f0f2elem = *f5elemf7f1f0f4f0f2iter
-										f5elemf7f1f0f4f0f2 = append(f5elemf7f1f0f4f0f2, &f5elemf7f1f0f4f0f2elem)
-									}
-									f5elemf7f1f0f4f0.SetIncludedHeaders(f5elemf7f1f0f4f0f2)
+									f5elemf7f1f0f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f1f0f4.SetMatchPattern(f5elemf7f1f0f4f0)
+								f5elemf7f1f0f4.MatchPattern = f5elemf7f1f0f4f0
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f1f0f4.SetMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f1f0f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f1f0f4.SetOversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f1f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f1f0.SetHeaders(f5elemf7f1f0f4)
+							f5elemf7f1f0.Headers = f5elemf7f1f0f4
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f1f0f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f1f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f1f0f5.SetFallbackBehavior(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f1f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f1f0.SetJA3Fingerprint(f5elemf7f1f0f5)
+							f5elemf7f1f0.JA3Fingerprint = f5elemf7f1f0f5
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f1f0f6 := &svcsdk.JsonBody{}
+							f5elemf7f1f0f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f1f0f6.SetInvalidFallbackBehavior(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f1f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f1f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f1f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f1f0f6f1f0 := &svcsdk.All{}
-									f5elemf7f1f0f6f1.SetAll(f5elemf7f1f0f6f1f0)
+									f5elemf7f1f0f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f1f0f6f1.All = f5elemf7f1f0f6f1f0
 								}
 								if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f1f0f6f1f1 := []*string{}
-									for _, f5elemf7f1f0f6f1f1iter := range f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f1f0f6f1f1elem string
-										f5elemf7f1f0f6f1f1elem = *f5elemf7f1f0f6f1f1iter
-										f5elemf7f1f0f6f1f1 = append(f5elemf7f1f0f6f1f1, &f5elemf7f1f0f6f1f1elem)
-									}
-									f5elemf7f1f0f6f1.SetIncludedPaths(f5elemf7f1f0f6f1f1)
+									f5elemf7f1f0f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f1f0f6.SetMatchPattern(f5elemf7f1f0f6f1)
+								f5elemf7f1f0f6.MatchPattern = f5elemf7f1f0f6f1
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f1f0f6.SetMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f1f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f1f0f6.SetOversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f1f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.ByteMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f1f0.SetJsonBody(f5elemf7f1f0f6)
+							f5elemf7f1f0.JsonBody = f5elemf7f1f0f6
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.Method != nil {
-							f5elemf7f1f0f7 := &svcsdk.Method{}
-							f5elemf7f1f0.SetMethod(f5elemf7f1f0f7)
+							f5elemf7f1f0f7 := &svcsdktypes.Method{}
+							f5elemf7f1f0.Method = f5elemf7f1f0f7
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f1f0f8 := &svcsdk.QueryString{}
-							f5elemf7f1f0.SetQueryString(f5elemf7f1f0f8)
+							f5elemf7f1f0f8 := &svcsdktypes.QueryString{}
+							f5elemf7f1f0.QueryString = f5elemf7f1f0f8
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f1f0f9 := &svcsdk.SingleHeader{}
+							f5elemf7f1f0f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f1f0f9.SetName(*f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f1f0f9.Name = f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f1f0.SetSingleHeader(f5elemf7f1f0f9)
+							f5elemf7f1f0.SingleHeader = f5elemf7f1f0f9
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f1f0f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f1f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f1f0f10.SetName(*f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f1f0f10.Name = f5iter.Statement.ByteMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f1f0.SetSingleQueryArgument(f5elemf7f1f0f10)
+							f5elemf7f1f0.SingleQueryArgument = f5elemf7f1f0f10
 						}
 						if f5iter.Statement.ByteMatchStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f1f0f11 := &svcsdk.UriPath{}
-							f5elemf7f1f0.SetUriPath(f5elemf7f1f0f11)
+							f5elemf7f1f0f11 := &svcsdktypes.UriPath{}
+							f5elemf7f1f0.UriPath = f5elemf7f1f0f11
 						}
-						f5elemf7f1.SetFieldToMatch(f5elemf7f1f0)
+						f5elemf7f1.FieldToMatch = f5elemf7f1f0
 					}
 					if f5iter.Statement.ByteMatchStatement.PositionalConstraint != nil {
-						f5elemf7f1.SetPositionalConstraint(*f5iter.Statement.ByteMatchStatement.PositionalConstraint)
+						f5elemf7f1.PositionalConstraint = svcsdktypes.PositionalConstraint(*f5iter.Statement.ByteMatchStatement.PositionalConstraint)
 					}
 					if f5iter.Statement.ByteMatchStatement.SearchString != nil {
-						f5elemf7f1.SetSearchString(f5iter.Statement.ByteMatchStatement.SearchString)
+						f5elemf7f1.SearchString = f5iter.Statement.ByteMatchStatement.SearchString
 					}
 					if f5iter.Statement.ByteMatchStatement.TextTransformations != nil {
-						f5elemf7f1f3 := []*svcsdk.TextTransformation{}
+						f5elemf7f1f3 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f1f3iter := range f5iter.Statement.ByteMatchStatement.TextTransformations {
-							f5elemf7f1f3elem := &svcsdk.TextTransformation{}
+							f5elemf7f1f3elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f1f3iter.Priority != nil {
-								f5elemf7f1f3elem.SetPriority(*f5elemf7f1f3iter.Priority)
+								priorityCopy0 := *f5elemf7f1f3iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f1f3elem.Priority = priorityCopy
 							}
 							if f5elemf7f1f3iter.Type != nil {
-								f5elemf7f1f3elem.SetType(*f5elemf7f1f3iter.Type)
+								f5elemf7f1f3elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f1f3iter.Type)
 							}
-							f5elemf7f1f3 = append(f5elemf7f1f3, f5elemf7f1f3elem)
+							f5elemf7f1f3 = append(f5elemf7f1f3, *f5elemf7f1f3elem)
 						}
-						f5elemf7f1.SetTextTransformations(f5elemf7f1f3)
+						f5elemf7f1.TextTransformations = f5elemf7f1f3
 					}
-					f5elemf7.SetByteMatchStatement(f5elemf7f1)
+					f5elemf7.ByteMatchStatement = f5elemf7f1
 				}
 				if f5iter.Statement.GeoMatchStatement != nil {
-					f5elemf7f2 := &svcsdk.GeoMatchStatement{}
+					f5elemf7f2 := &svcsdktypes.GeoMatchStatement{}
 					if f5iter.Statement.GeoMatchStatement.CountryCodes != nil {
-						f5elemf7f2f0 := []*string{}
+						f5elemf7f2f0 := []svcsdktypes.CountryCode{}
 						for _, f5elemf7f2f0iter := range f5iter.Statement.GeoMatchStatement.CountryCodes {
 							var f5elemf7f2f0elem string
-							f5elemf7f2f0elem = *f5elemf7f2f0iter
-							f5elemf7f2f0 = append(f5elemf7f2f0, &f5elemf7f2f0elem)
+							f5elemf7f2f0elem = string(*f5elemf7f2f0iter)
+							f5elemf7f2f0 = append(f5elemf7f2f0, svcsdktypes.CountryCode(f5elemf7f2f0elem))
 						}
-						f5elemf7f2.SetCountryCodes(f5elemf7f2f0)
+						f5elemf7f2.CountryCodes = f5elemf7f2f0
 					}
 					if f5iter.Statement.GeoMatchStatement.ForwardedIPConfig != nil {
-						f5elemf7f2f1 := &svcsdk.ForwardedIPConfig{}
+						f5elemf7f2f1 := &svcsdktypes.ForwardedIPConfig{}
 						if f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f5elemf7f2f1.SetFallbackBehavior(*f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior)
+							f5elemf7f2f1.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.FallbackBehavior)
 						}
 						if f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName != nil {
-							f5elemf7f2f1.SetHeaderName(*f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName)
+							f5elemf7f2f1.HeaderName = f5iter.Statement.GeoMatchStatement.ForwardedIPConfig.HeaderName
 						}
-						f5elemf7f2.SetForwardedIPConfig(f5elemf7f2f1)
+						f5elemf7f2.ForwardedIPConfig = f5elemf7f2f1
 					}
-					f5elemf7.SetGeoMatchStatement(f5elemf7f2)
+					f5elemf7.GeoMatchStatement = f5elemf7f2
 				}
 				if f5iter.Statement.IPSetReferenceStatement != nil {
-					f5elemf7f3 := &svcsdk.IPSetReferenceStatement{}
+					f5elemf7f3 := &svcsdktypes.IPSetReferenceStatement{}
 					if f5iter.Statement.IPSetReferenceStatement.ARN != nil {
-						f5elemf7f3.SetARN(*f5iter.Statement.IPSetReferenceStatement.ARN)
+						f5elemf7f3.ARN = f5iter.Statement.IPSetReferenceStatement.ARN
 					}
 					if f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig != nil {
-						f5elemf7f3f1 := &svcsdk.IPSetForwardedIPConfig{}
+						f5elemf7f3f1 := &svcsdktypes.IPSetForwardedIPConfig{}
 						if f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior != nil {
-							f5elemf7f3f1.SetFallbackBehavior(*f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior)
+							f5elemf7f3f1.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.FallbackBehavior)
 						}
 						if f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName != nil {
-							f5elemf7f3f1.SetHeaderName(*f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName)
+							f5elemf7f3f1.HeaderName = f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.HeaderName
 						}
 						if f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position != nil {
-							f5elemf7f3f1.SetPosition(*f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position)
+							f5elemf7f3f1.Position = svcsdktypes.ForwardedIPPosition(*f5iter.Statement.IPSetReferenceStatement.IPSetForwardedIPConfig.Position)
 						}
-						f5elemf7f3.SetIPSetForwardedIPConfig(f5elemf7f3f1)
+						f5elemf7f3.IPSetForwardedIPConfig = f5elemf7f3f1
 					}
-					f5elemf7.SetIPSetReferenceStatement(f5elemf7f3)
+					f5elemf7.IPSetReferenceStatement = f5elemf7f3
 				}
 				if f5iter.Statement.LabelMatchStatement != nil {
-					f5elemf7f4 := &svcsdk.LabelMatchStatement{}
+					f5elemf7f4 := &svcsdktypes.LabelMatchStatement{}
 					if f5iter.Statement.LabelMatchStatement.Key != nil {
-						f5elemf7f4.SetKey(*f5iter.Statement.LabelMatchStatement.Key)
+						f5elemf7f4.Key = f5iter.Statement.LabelMatchStatement.Key
 					}
 					if f5iter.Statement.LabelMatchStatement.Scope != nil {
-						f5elemf7f4.SetScope(*f5iter.Statement.LabelMatchStatement.Scope)
+						f5elemf7f4.Scope = svcsdktypes.LabelMatchScope(*f5iter.Statement.LabelMatchStatement.Scope)
 					}
-					f5elemf7.SetLabelMatchStatement(f5elemf7f4)
+					f5elemf7.LabelMatchStatement = f5elemf7f4
 				}
 				if f5iter.Statement.ManagedRuleGroupStatement != nil {
-					f5elemf7f5 := &svcsdk.ManagedRuleGroupStatement{}
+					f5elemf7f5 := &svcsdktypes.ManagedRuleGroupStatement{}
 					if f5iter.Statement.ManagedRuleGroupStatement.ExcludedRules != nil {
-						f5elemf7f5f0 := []*svcsdk.ExcludedRule{}
+						f5elemf7f5f0 := []svcsdktypes.ExcludedRule{}
 						for _, f5elemf7f5f0iter := range f5iter.Statement.ManagedRuleGroupStatement.ExcludedRules {
-							f5elemf7f5f0elem := &svcsdk.ExcludedRule{}
+							f5elemf7f5f0elem := &svcsdktypes.ExcludedRule{}
 							if f5elemf7f5f0iter.Name != nil {
-								f5elemf7f5f0elem.SetName(*f5elemf7f5f0iter.Name)
+								f5elemf7f5f0elem.Name = f5elemf7f5f0iter.Name
 							}
-							f5elemf7f5f0 = append(f5elemf7f5f0, f5elemf7f5f0elem)
+							f5elemf7f5f0 = append(f5elemf7f5f0, *f5elemf7f5f0elem)
 						}
-						f5elemf7f5.SetExcludedRules(f5elemf7f5f0)
+						f5elemf7f5.ExcludedRules = f5elemf7f5f0
 					}
 					if f5iter.Statement.ManagedRuleGroupStatement.ManagedRuleGroupConfigs != nil {
-						f5elemf7f5f1 := []*svcsdk.ManagedRuleGroupConfig{}
+						f5elemf7f5f1 := []svcsdktypes.ManagedRuleGroupConfig{}
 						for _, f5elemf7f5f1iter := range f5iter.Statement.ManagedRuleGroupStatement.ManagedRuleGroupConfigs {
-							f5elemf7f5f1elem := &svcsdk.ManagedRuleGroupConfig{}
+							f5elemf7f5f1elem := &svcsdktypes.ManagedRuleGroupConfig{}
 							if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet != nil {
-								f5elemf7f5f1elemf0 := &svcsdk.AWSManagedRulesACFPRuleSet{}
+								f5elemf7f5f1elemf0 := &svcsdktypes.AWSManagedRulesACFPRuleSet{}
 								if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath != nil {
-									f5elemf7f5f1elemf0.SetCreationPath(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath)
+									f5elemf7f5f1elemf0.CreationPath = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.CreationPath
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath != nil {
-									f5elemf7f5f1elemf0.SetEnableRegexInPath(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath)
+									f5elemf7f5f1elemf0.EnableRegexInPath = *f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.EnableRegexInPath
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath != nil {
-									f5elemf7f5f1elemf0.SetRegistrationPagePath(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath)
+									f5elemf7f5f1elemf0.RegistrationPagePath = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RegistrationPagePath
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection != nil {
-									f5elemf7f5f1elemf0f3 := &svcsdk.RequestInspectionACFP{}
+									f5elemf7f5f1elemf0f3 := &svcsdktypes.RequestInspectionACFP{}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.AddressFields != nil {
-										f5elemf7f5f1elemf0f3f0 := []*svcsdk.AddressField{}
+										f5elemf7f5f1elemf0f3f0 := []svcsdktypes.AddressField{}
 										for _, f5elemf7f5f1elemf0f3f0iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.AddressFields {
-											f5elemf7f5f1elemf0f3f0elem := &svcsdk.AddressField{}
+											f5elemf7f5f1elemf0f3f0elem := &svcsdktypes.AddressField{}
 											if f5elemf7f5f1elemf0f3f0iter.Identifier != nil {
-												f5elemf7f5f1elemf0f3f0elem.SetIdentifier(*f5elemf7f5f1elemf0f3f0iter.Identifier)
+												f5elemf7f5f1elemf0f3f0elem.Identifier = f5elemf7f5f1elemf0f3f0iter.Identifier
 											}
-											f5elemf7f5f1elemf0f3f0 = append(f5elemf7f5f1elemf0f3f0, f5elemf7f5f1elemf0f3f0elem)
+											f5elemf7f5f1elemf0f3f0 = append(f5elemf7f5f1elemf0f3f0, *f5elemf7f5f1elemf0f3f0elem)
 										}
-										f5elemf7f5f1elemf0f3.SetAddressFields(f5elemf7f5f1elemf0f3f0)
+										f5elemf7f5f1elemf0f3.AddressFields = f5elemf7f5f1elemf0f3f0
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField != nil {
-										f5elemf7f5f1elemf0f3f1 := &svcsdk.EmailField{}
+										f5elemf7f5f1elemf0f3f1 := &svcsdktypes.EmailField{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier != nil {
-											f5elemf7f5f1elemf0f3f1.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier)
+											f5elemf7f5f1elemf0f3f1.Identifier = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.EmailField.Identifier
 										}
-										f5elemf7f5f1elemf0f3.SetEmailField(f5elemf7f5f1elemf0f3f1)
+										f5elemf7f5f1elemf0f3.EmailField = f5elemf7f5f1elemf0f3f1
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField != nil {
-										f5elemf7f5f1elemf0f3f2 := &svcsdk.PasswordField{}
+										f5elemf7f5f1elemf0f3f2 := &svcsdktypes.PasswordField{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier != nil {
-											f5elemf7f5f1elemf0f3f2.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier)
+											f5elemf7f5f1elemf0f3f2.Identifier = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PasswordField.Identifier
 										}
-										f5elemf7f5f1elemf0f3.SetPasswordField(f5elemf7f5f1elemf0f3f2)
+										f5elemf7f5f1elemf0f3.PasswordField = f5elemf7f5f1elemf0f3f2
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType != nil {
-										f5elemf7f5f1elemf0f3.SetPayloadType(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType)
+										f5elemf7f5f1elemf0f3.PayloadType = svcsdktypes.PayloadType(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PayloadType)
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PhoneNumberFields != nil {
-										f5elemf7f5f1elemf0f3f4 := []*svcsdk.PhoneNumberField{}
+										f5elemf7f5f1elemf0f3f4 := []svcsdktypes.PhoneNumberField{}
 										for _, f5elemf7f5f1elemf0f3f4iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.PhoneNumberFields {
-											f5elemf7f5f1elemf0f3f4elem := &svcsdk.PhoneNumberField{}
+											f5elemf7f5f1elemf0f3f4elem := &svcsdktypes.PhoneNumberField{}
 											if f5elemf7f5f1elemf0f3f4iter.Identifier != nil {
-												f5elemf7f5f1elemf0f3f4elem.SetIdentifier(*f5elemf7f5f1elemf0f3f4iter.Identifier)
+												f5elemf7f5f1elemf0f3f4elem.Identifier = f5elemf7f5f1elemf0f3f4iter.Identifier
 											}
-											f5elemf7f5f1elemf0f3f4 = append(f5elemf7f5f1elemf0f3f4, f5elemf7f5f1elemf0f3f4elem)
+											f5elemf7f5f1elemf0f3f4 = append(f5elemf7f5f1elemf0f3f4, *f5elemf7f5f1elemf0f3f4elem)
 										}
-										f5elemf7f5f1elemf0f3.SetPhoneNumberFields(f5elemf7f5f1elemf0f3f4)
+										f5elemf7f5f1elemf0f3.PhoneNumberFields = f5elemf7f5f1elemf0f3f4
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField != nil {
-										f5elemf7f5f1elemf0f3f5 := &svcsdk.UsernameField{}
+										f5elemf7f5f1elemf0f3f5 := &svcsdktypes.UsernameField{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier != nil {
-											f5elemf7f5f1elemf0f3f5.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier)
+											f5elemf7f5f1elemf0f3f5.Identifier = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.RequestInspection.UsernameField.Identifier
 										}
-										f5elemf7f5f1elemf0f3.SetUsernameField(f5elemf7f5f1elemf0f3f5)
+										f5elemf7f5f1elemf0f3.UsernameField = f5elemf7f5f1elemf0f3f5
 									}
-									f5elemf7f5f1elemf0.SetRequestInspection(f5elemf7f5f1elemf0f3)
+									f5elemf7f5f1elemf0.RequestInspection = f5elemf7f5f1elemf0f3
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection != nil {
-									f5elemf7f5f1elemf0f4 := &svcsdk.ResponseInspection{}
+									f5elemf7f5f1elemf0f4 := &svcsdktypes.ResponseInspection{}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains != nil {
-										f5elemf7f5f1elemf0f4f0 := &svcsdk.ResponseInspectionBodyContains{}
+										f5elemf7f5f1elemf0f4f0 := &svcsdktypes.ResponseInspectionBodyContains{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f5elemf7f5f1elemf0f4f0f0 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f0f0iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f5elemf7f5f1elemf0f4f0f0elem string
-												f5elemf7f5f1elemf0f4f0f0elem = *f5elemf7f5f1elemf0f4f0f0iter
-												f5elemf7f5f1elemf0f4f0f0 = append(f5elemf7f5f1elemf0f4f0f0, &f5elemf7f5f1elemf0f4f0f0elem)
-											}
-											f5elemf7f5f1elemf0f4f0.SetFailureStrings(f5elemf7f5f1elemf0f4f0f0)
+											f5elemf7f5f1elemf0f4f0.FailureStrings = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f5elemf7f5f1elemf0f4f0f1 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f0f1iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f5elemf7f5f1elemf0f4f0f1elem string
-												f5elemf7f5f1elemf0f4f0f1elem = *f5elemf7f5f1elemf0f4f0f1iter
-												f5elemf7f5f1elemf0f4f0f1 = append(f5elemf7f5f1elemf0f4f0f1, &f5elemf7f5f1elemf0f4f0f1elem)
-											}
-											f5elemf7f5f1elemf0f4f0.SetSuccessStrings(f5elemf7f5f1elemf0f4f0f1)
+											f5elemf7f5f1elemf0f4f0.SuccessStrings = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
-										f5elemf7f5f1elemf0f4.SetBodyContains(f5elemf7f5f1elemf0f4f0)
+										f5elemf7f5f1elemf0f4.BodyContains = f5elemf7f5f1elemf0f4f0
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header != nil {
-										f5elemf7f5f1elemf0f4f1 := &svcsdk.ResponseInspectionHeader{}
+										f5elemf7f5f1elemf0f4f1 := &svcsdktypes.ResponseInspectionHeader{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f5elemf7f5f1elemf0f4f1f0 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f1f0iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues {
-												var f5elemf7f5f1elemf0f4f1f0elem string
-												f5elemf7f5f1elemf0f4f1f0elem = *f5elemf7f5f1elemf0f4f1f0iter
-												f5elemf7f5f1elemf0f4f1f0 = append(f5elemf7f5f1elemf0f4f1f0, &f5elemf7f5f1elemf0f4f1f0elem)
-											}
-											f5elemf7f5f1elemf0f4f1.SetFailureValues(f5elemf7f5f1elemf0f4f1f0)
+											f5elemf7f5f1elemf0f4f1.FailureValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name != nil {
-											f5elemf7f5f1elemf0f4f1.SetName(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name)
+											f5elemf7f5f1elemf0f4f1.Name = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.Name
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f5elemf7f5f1elemf0f4f1f2 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f1f2iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f5elemf7f5f1elemf0f4f1f2elem string
-												f5elemf7f5f1elemf0f4f1f2elem = *f5elemf7f5f1elemf0f4f1f2iter
-												f5elemf7f5f1elemf0f4f1f2 = append(f5elemf7f5f1elemf0f4f1f2, &f5elemf7f5f1elemf0f4f1f2elem)
-											}
-											f5elemf7f5f1elemf0f4f1.SetSuccessValues(f5elemf7f5f1elemf0f4f1f2)
+											f5elemf7f5f1elemf0f4f1.SuccessValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
-										f5elemf7f5f1elemf0f4.SetHeader(f5elemf7f5f1elemf0f4f1)
+										f5elemf7f5f1elemf0f4.Header = f5elemf7f5f1elemf0f4f1
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON != nil {
-										f5elemf7f5f1elemf0f4f2 := &svcsdk.ResponseInspectionJson{}
+										f5elemf7f5f1elemf0f4f2 := &svcsdktypes.ResponseInspectionJson{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues != nil {
-											f5elemf7f5f1elemf0f4f2f0 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f2f0iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues {
-												var f5elemf7f5f1elemf0f4f2f0elem string
-												f5elemf7f5f1elemf0f4f2f0elem = *f5elemf7f5f1elemf0f4f2f0iter
-												f5elemf7f5f1elemf0f4f2f0 = append(f5elemf7f5f1elemf0f4f2f0, &f5elemf7f5f1elemf0f4f2f0elem)
-											}
-											f5elemf7f5f1elemf0f4f2.SetFailureValues(f5elemf7f5f1elemf0f4f2f0)
+											f5elemf7f5f1elemf0f4f2.FailureValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.FailureValues)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier != nil {
-											f5elemf7f5f1elemf0f4f2.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier)
+											f5elemf7f5f1elemf0f4f2.Identifier = f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.Identifier
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues != nil {
-											f5elemf7f5f1elemf0f4f2f2 := []*string{}
-											for _, f5elemf7f5f1elemf0f4f2f2iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues {
-												var f5elemf7f5f1elemf0f4f2f2elem string
-												f5elemf7f5f1elemf0f4f2f2elem = *f5elemf7f5f1elemf0f4f2f2iter
-												f5elemf7f5f1elemf0f4f2f2 = append(f5elemf7f5f1elemf0f4f2f2, &f5elemf7f5f1elemf0f4f2f2elem)
-											}
-											f5elemf7f5f1elemf0f4f2.SetSuccessValues(f5elemf7f5f1elemf0f4f2f2)
+											f5elemf7f5f1elemf0f4f2.SuccessValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.JSON.SuccessValues)
 										}
-										f5elemf7f5f1elemf0f4.SetJson(f5elemf7f5f1elemf0f4f2)
+										f5elemf7f5f1elemf0f4.Json = f5elemf7f5f1elemf0f4f2
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode != nil {
-										f5elemf7f5f1elemf0f4f3 := &svcsdk.ResponseInspectionStatusCode{}
+										f5elemf7f5f1elemf0f4f3 := &svcsdktypes.ResponseInspectionStatusCode{}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
-											f5elemf7f5f1elemf0f4f3f0 := []*int64{}
+											f5elemf7f5f1elemf0f4f3f0 := []int32{}
 											for _, f5elemf7f5f1elemf0f4f3f0iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f5elemf7f5f1elemf0f4f3f0elem int64
-												f5elemf7f5f1elemf0f4f3f0elem = *f5elemf7f5f1elemf0f4f3f0iter
-												f5elemf7f5f1elemf0f4f3f0 = append(f5elemf7f5f1elemf0f4f3f0, &f5elemf7f5f1elemf0f4f3f0elem)
+												var f5elemf7f5f1elemf0f4f3f0elem int32
+												failureCodeCopy0 := *f5elemf7f5f1elemf0f4f3f0iter
+												if failureCodeCopy0 > math.MaxInt32 || failureCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field FailureCode is of type int32")
+												}
+												failureCodeCopy := int32(failureCodeCopy0)
+												f5elemf7f5f1elemf0f4f3f0elem = failureCodeCopy
+												f5elemf7f5f1elemf0f4f3f0 = append(f5elemf7f5f1elemf0f4f3f0, f5elemf7f5f1elemf0f4f3f0elem)
 											}
-											f5elemf7f5f1elemf0f4f3.SetFailureCodes(f5elemf7f5f1elemf0f4f3f0)
+											f5elemf7f5f1elemf0f4f3.FailureCodes = f5elemf7f5f1elemf0f4f3f0
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
-											f5elemf7f5f1elemf0f4f3f1 := []*int64{}
+											f5elemf7f5f1elemf0f4f3f1 := []int32{}
 											for _, f5elemf7f5f1elemf0f4f3f1iter := range f5elemf7f5f1iter.AWSManagedRulesACFPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f5elemf7f5f1elemf0f4f3f1elem int64
-												f5elemf7f5f1elemf0f4f3f1elem = *f5elemf7f5f1elemf0f4f3f1iter
-												f5elemf7f5f1elemf0f4f3f1 = append(f5elemf7f5f1elemf0f4f3f1, &f5elemf7f5f1elemf0f4f3f1elem)
+												var f5elemf7f5f1elemf0f4f3f1elem int32
+												successCodeCopy0 := *f5elemf7f5f1elemf0f4f3f1iter
+												if successCodeCopy0 > math.MaxInt32 || successCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field SuccessCode is of type int32")
+												}
+												successCodeCopy := int32(successCodeCopy0)
+												f5elemf7f5f1elemf0f4f3f1elem = successCodeCopy
+												f5elemf7f5f1elemf0f4f3f1 = append(f5elemf7f5f1elemf0f4f3f1, f5elemf7f5f1elemf0f4f3f1elem)
 											}
-											f5elemf7f5f1elemf0f4f3.SetSuccessCodes(f5elemf7f5f1elemf0f4f3f1)
+											f5elemf7f5f1elemf0f4f3.SuccessCodes = f5elemf7f5f1elemf0f4f3f1
 										}
-										f5elemf7f5f1elemf0f4.SetStatusCode(f5elemf7f5f1elemf0f4f3)
+										f5elemf7f5f1elemf0f4.StatusCode = f5elemf7f5f1elemf0f4f3
 									}
-									f5elemf7f5f1elemf0.SetResponseInspection(f5elemf7f5f1elemf0f4)
+									f5elemf7f5f1elemf0.ResponseInspection = f5elemf7f5f1elemf0f4
 								}
-								f5elemf7f5f1elem.SetAWSManagedRulesACFPRuleSet(f5elemf7f5f1elemf0)
+								f5elemf7f5f1elem.AWSManagedRulesACFPRuleSet = f5elemf7f5f1elemf0
 							}
 							if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet != nil {
-								f5elemf7f5f1elemf1 := &svcsdk.AWSManagedRulesATPRuleSet{}
+								f5elemf7f5f1elemf1 := &svcsdktypes.AWSManagedRulesATPRuleSet{}
 								if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath != nil {
-									f5elemf7f5f1elemf1.SetEnableRegexInPath(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath)
+									f5elemf7f5f1elemf1.EnableRegexInPath = *f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.EnableRegexInPath
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath != nil {
-									f5elemf7f5f1elemf1.SetLoginPath(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath)
+									f5elemf7f5f1elemf1.LoginPath = f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.LoginPath
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection != nil {
-									f5elemf7f5f1elemf1f2 := &svcsdk.RequestInspection{}
+									f5elemf7f5f1elemf1f2 := &svcsdktypes.RequestInspection{}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField != nil {
-										f5elemf7f5f1elemf1f2f0 := &svcsdk.PasswordField{}
+										f5elemf7f5f1elemf1f2f0 := &svcsdktypes.PasswordField{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier != nil {
-											f5elemf7f5f1elemf1f2f0.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier)
+											f5elemf7f5f1elemf1f2f0.Identifier = f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PasswordField.Identifier
 										}
-										f5elemf7f5f1elemf1f2.SetPasswordField(f5elemf7f5f1elemf1f2f0)
+										f5elemf7f5f1elemf1f2.PasswordField = f5elemf7f5f1elemf1f2f0
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType != nil {
-										f5elemf7f5f1elemf1f2.SetPayloadType(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType)
+										f5elemf7f5f1elemf1f2.PayloadType = svcsdktypes.PayloadType(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.PayloadType)
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField != nil {
-										f5elemf7f5f1elemf1f2f2 := &svcsdk.UsernameField{}
+										f5elemf7f5f1elemf1f2f2 := &svcsdktypes.UsernameField{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier != nil {
-											f5elemf7f5f1elemf1f2f2.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier)
+											f5elemf7f5f1elemf1f2f2.Identifier = f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.RequestInspection.UsernameField.Identifier
 										}
-										f5elemf7f5f1elemf1f2.SetUsernameField(f5elemf7f5f1elemf1f2f2)
+										f5elemf7f5f1elemf1f2.UsernameField = f5elemf7f5f1elemf1f2f2
 									}
-									f5elemf7f5f1elemf1.SetRequestInspection(f5elemf7f5f1elemf1f2)
+									f5elemf7f5f1elemf1.RequestInspection = f5elemf7f5f1elemf1f2
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection != nil {
-									f5elemf7f5f1elemf1f3 := &svcsdk.ResponseInspection{}
+									f5elemf7f5f1elemf1f3 := &svcsdktypes.ResponseInspection{}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains != nil {
-										f5elemf7f5f1elemf1f3f0 := &svcsdk.ResponseInspectionBodyContains{}
+										f5elemf7f5f1elemf1f3f0 := &svcsdktypes.ResponseInspectionBodyContains{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings != nil {
-											f5elemf7f5f1elemf1f3f0f0 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f0f0iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings {
-												var f5elemf7f5f1elemf1f3f0f0elem string
-												f5elemf7f5f1elemf1f3f0f0elem = *f5elemf7f5f1elemf1f3f0f0iter
-												f5elemf7f5f1elemf1f3f0f0 = append(f5elemf7f5f1elemf1f3f0f0, &f5elemf7f5f1elemf1f3f0f0elem)
-											}
-											f5elemf7f5f1elemf1f3f0.SetFailureStrings(f5elemf7f5f1elemf1f3f0f0)
+											f5elemf7f5f1elemf1f3f0.FailureStrings = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.FailureStrings)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings != nil {
-											f5elemf7f5f1elemf1f3f0f1 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f0f1iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings {
-												var f5elemf7f5f1elemf1f3f0f1elem string
-												f5elemf7f5f1elemf1f3f0f1elem = *f5elemf7f5f1elemf1f3f0f1iter
-												f5elemf7f5f1elemf1f3f0f1 = append(f5elemf7f5f1elemf1f3f0f1, &f5elemf7f5f1elemf1f3f0f1elem)
-											}
-											f5elemf7f5f1elemf1f3f0.SetSuccessStrings(f5elemf7f5f1elemf1f3f0f1)
+											f5elemf7f5f1elemf1f3f0.SuccessStrings = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.BodyContains.SuccessStrings)
 										}
-										f5elemf7f5f1elemf1f3.SetBodyContains(f5elemf7f5f1elemf1f3f0)
+										f5elemf7f5f1elemf1f3.BodyContains = f5elemf7f5f1elemf1f3f0
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header != nil {
-										f5elemf7f5f1elemf1f3f1 := &svcsdk.ResponseInspectionHeader{}
+										f5elemf7f5f1elemf1f3f1 := &svcsdktypes.ResponseInspectionHeader{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues != nil {
-											f5elemf7f5f1elemf1f3f1f0 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f1f0iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues {
-												var f5elemf7f5f1elemf1f3f1f0elem string
-												f5elemf7f5f1elemf1f3f1f0elem = *f5elemf7f5f1elemf1f3f1f0iter
-												f5elemf7f5f1elemf1f3f1f0 = append(f5elemf7f5f1elemf1f3f1f0, &f5elemf7f5f1elemf1f3f1f0elem)
-											}
-											f5elemf7f5f1elemf1f3f1.SetFailureValues(f5elemf7f5f1elemf1f3f1f0)
+											f5elemf7f5f1elemf1f3f1.FailureValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.FailureValues)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name != nil {
-											f5elemf7f5f1elemf1f3f1.SetName(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name)
+											f5elemf7f5f1elemf1f3f1.Name = f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.Name
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues != nil {
-											f5elemf7f5f1elemf1f3f1f2 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f1f2iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues {
-												var f5elemf7f5f1elemf1f3f1f2elem string
-												f5elemf7f5f1elemf1f3f1f2elem = *f5elemf7f5f1elemf1f3f1f2iter
-												f5elemf7f5f1elemf1f3f1f2 = append(f5elemf7f5f1elemf1f3f1f2, &f5elemf7f5f1elemf1f3f1f2elem)
-											}
-											f5elemf7f5f1elemf1f3f1.SetSuccessValues(f5elemf7f5f1elemf1f3f1f2)
+											f5elemf7f5f1elemf1f3f1.SuccessValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.Header.SuccessValues)
 										}
-										f5elemf7f5f1elemf1f3.SetHeader(f5elemf7f5f1elemf1f3f1)
+										f5elemf7f5f1elemf1f3.Header = f5elemf7f5f1elemf1f3f1
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON != nil {
-										f5elemf7f5f1elemf1f3f2 := &svcsdk.ResponseInspectionJson{}
+										f5elemf7f5f1elemf1f3f2 := &svcsdktypes.ResponseInspectionJson{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues != nil {
-											f5elemf7f5f1elemf1f3f2f0 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f2f0iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues {
-												var f5elemf7f5f1elemf1f3f2f0elem string
-												f5elemf7f5f1elemf1f3f2f0elem = *f5elemf7f5f1elemf1f3f2f0iter
-												f5elemf7f5f1elemf1f3f2f0 = append(f5elemf7f5f1elemf1f3f2f0, &f5elemf7f5f1elemf1f3f2f0elem)
-											}
-											f5elemf7f5f1elemf1f3f2.SetFailureValues(f5elemf7f5f1elemf1f3f2f0)
+											f5elemf7f5f1elemf1f3f2.FailureValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.FailureValues)
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier != nil {
-											f5elemf7f5f1elemf1f3f2.SetIdentifier(*f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier)
+											f5elemf7f5f1elemf1f3f2.Identifier = f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.Identifier
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues != nil {
-											f5elemf7f5f1elemf1f3f2f2 := []*string{}
-											for _, f5elemf7f5f1elemf1f3f2f2iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues {
-												var f5elemf7f5f1elemf1f3f2f2elem string
-												f5elemf7f5f1elemf1f3f2f2elem = *f5elemf7f5f1elemf1f3f2f2iter
-												f5elemf7f5f1elemf1f3f2f2 = append(f5elemf7f5f1elemf1f3f2f2, &f5elemf7f5f1elemf1f3f2f2elem)
-											}
-											f5elemf7f5f1elemf1f3f2.SetSuccessValues(f5elemf7f5f1elemf1f3f2f2)
+											f5elemf7f5f1elemf1f3f2.SuccessValues = aws.ToStringSlice(f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.JSON.SuccessValues)
 										}
-										f5elemf7f5f1elemf1f3.SetJson(f5elemf7f5f1elemf1f3f2)
+										f5elemf7f5f1elemf1f3.Json = f5elemf7f5f1elemf1f3f2
 									}
 									if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode != nil {
-										f5elemf7f5f1elemf1f3f3 := &svcsdk.ResponseInspectionStatusCode{}
+										f5elemf7f5f1elemf1f3f3 := &svcsdktypes.ResponseInspectionStatusCode{}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes != nil {
-											f5elemf7f5f1elemf1f3f3f0 := []*int64{}
+											f5elemf7f5f1elemf1f3f3f0 := []int32{}
 											for _, f5elemf7f5f1elemf1f3f3f0iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.FailureCodes {
-												var f5elemf7f5f1elemf1f3f3f0elem int64
-												f5elemf7f5f1elemf1f3f3f0elem = *f5elemf7f5f1elemf1f3f3f0iter
-												f5elemf7f5f1elemf1f3f3f0 = append(f5elemf7f5f1elemf1f3f3f0, &f5elemf7f5f1elemf1f3f3f0elem)
+												var f5elemf7f5f1elemf1f3f3f0elem int32
+												failureCodeCopy0 := *f5elemf7f5f1elemf1f3f3f0iter
+												if failureCodeCopy0 > math.MaxInt32 || failureCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field FailureCode is of type int32")
+												}
+												failureCodeCopy := int32(failureCodeCopy0)
+												f5elemf7f5f1elemf1f3f3f0elem = failureCodeCopy
+												f5elemf7f5f1elemf1f3f3f0 = append(f5elemf7f5f1elemf1f3f3f0, f5elemf7f5f1elemf1f3f3f0elem)
 											}
-											f5elemf7f5f1elemf1f3f3.SetFailureCodes(f5elemf7f5f1elemf1f3f3f0)
+											f5elemf7f5f1elemf1f3f3.FailureCodes = f5elemf7f5f1elemf1f3f3f0
 										}
 										if f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes != nil {
-											f5elemf7f5f1elemf1f3f3f1 := []*int64{}
+											f5elemf7f5f1elemf1f3f3f1 := []int32{}
 											for _, f5elemf7f5f1elemf1f3f3f1iter := range f5elemf7f5f1iter.AWSManagedRulesATPRuleSet.ResponseInspection.StatusCode.SuccessCodes {
-												var f5elemf7f5f1elemf1f3f3f1elem int64
-												f5elemf7f5f1elemf1f3f3f1elem = *f5elemf7f5f1elemf1f3f3f1iter
-												f5elemf7f5f1elemf1f3f3f1 = append(f5elemf7f5f1elemf1f3f3f1, &f5elemf7f5f1elemf1f3f3f1elem)
+												var f5elemf7f5f1elemf1f3f3f1elem int32
+												successCodeCopy0 := *f5elemf7f5f1elemf1f3f3f1iter
+												if successCodeCopy0 > math.MaxInt32 || successCodeCopy0 < math.MinInt32 {
+													return nil, fmt.Errorf("error: field SuccessCode is of type int32")
+												}
+												successCodeCopy := int32(successCodeCopy0)
+												f5elemf7f5f1elemf1f3f3f1elem = successCodeCopy
+												f5elemf7f5f1elemf1f3f3f1 = append(f5elemf7f5f1elemf1f3f3f1, f5elemf7f5f1elemf1f3f3f1elem)
 											}
-											f5elemf7f5f1elemf1f3f3.SetSuccessCodes(f5elemf7f5f1elemf1f3f3f1)
+											f5elemf7f5f1elemf1f3f3.SuccessCodes = f5elemf7f5f1elemf1f3f3f1
 										}
-										f5elemf7f5f1elemf1f3.SetStatusCode(f5elemf7f5f1elemf1f3f3)
+										f5elemf7f5f1elemf1f3.StatusCode = f5elemf7f5f1elemf1f3f3
 									}
-									f5elemf7f5f1elemf1.SetResponseInspection(f5elemf7f5f1elemf1f3)
+									f5elemf7f5f1elemf1.ResponseInspection = f5elemf7f5f1elemf1f3
 								}
-								f5elemf7f5f1elem.SetAWSManagedRulesATPRuleSet(f5elemf7f5f1elemf1)
+								f5elemf7f5f1elem.AWSManagedRulesATPRuleSet = f5elemf7f5f1elemf1
 							}
 							if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet != nil {
-								f5elemf7f5f1elemf2 := &svcsdk.AWSManagedRulesBotControlRuleSet{}
+								f5elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
 								if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
-									f5elemf7f5f1elemf2.SetEnableMachineLearning(*f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning)
+									f5elemf7f5f1elemf2.EnableMachineLearning = f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != nil {
-									f5elemf7f5f1elemf2.SetInspectionLevel(*f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
+									f5elemf7f5f1elemf2.InspectionLevel = svcsdktypes.InspectionLevel(*f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
 								}
-								f5elemf7f5f1elem.SetAWSManagedRulesBotControlRuleSet(f5elemf7f5f1elemf2)
+								f5elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f5elemf7f5f1elemf2
 							}
 							if f5elemf7f5f1iter.LoginPath != nil {
-								f5elemf7f5f1elem.SetLoginPath(*f5elemf7f5f1iter.LoginPath)
+								f5elemf7f5f1elem.LoginPath = f5elemf7f5f1iter.LoginPath
 							}
 							if f5elemf7f5f1iter.PasswordField != nil {
-								f5elemf7f5f1elemf4 := &svcsdk.PasswordField{}
+								f5elemf7f5f1elemf4 := &svcsdktypes.PasswordField{}
 								if f5elemf7f5f1iter.PasswordField.Identifier != nil {
-									f5elemf7f5f1elemf4.SetIdentifier(*f5elemf7f5f1iter.PasswordField.Identifier)
+									f5elemf7f5f1elemf4.Identifier = f5elemf7f5f1iter.PasswordField.Identifier
 								}
-								f5elemf7f5f1elem.SetPasswordField(f5elemf7f5f1elemf4)
+								f5elemf7f5f1elem.PasswordField = f5elemf7f5f1elemf4
 							}
 							if f5elemf7f5f1iter.PayloadType != nil {
-								f5elemf7f5f1elem.SetPayloadType(*f5elemf7f5f1iter.PayloadType)
+								f5elemf7f5f1elem.PayloadType = svcsdktypes.PayloadType(*f5elemf7f5f1iter.PayloadType)
 							}
 							if f5elemf7f5f1iter.UsernameField != nil {
-								f5elemf7f5f1elemf6 := &svcsdk.UsernameField{}
+								f5elemf7f5f1elemf6 := &svcsdktypes.UsernameField{}
 								if f5elemf7f5f1iter.UsernameField.Identifier != nil {
-									f5elemf7f5f1elemf6.SetIdentifier(*f5elemf7f5f1iter.UsernameField.Identifier)
+									f5elemf7f5f1elemf6.Identifier = f5elemf7f5f1iter.UsernameField.Identifier
 								}
-								f5elemf7f5f1elem.SetUsernameField(f5elemf7f5f1elemf6)
+								f5elemf7f5f1elem.UsernameField = f5elemf7f5f1elemf6
 							}
-							f5elemf7f5f1 = append(f5elemf7f5f1, f5elemf7f5f1elem)
+							f5elemf7f5f1 = append(f5elemf7f5f1, *f5elemf7f5f1elem)
 						}
-						f5elemf7f5.SetManagedRuleGroupConfigs(f5elemf7f5f1)
+						f5elemf7f5.ManagedRuleGroupConfigs = f5elemf7f5f1
 					}
 					if f5iter.Statement.ManagedRuleGroupStatement.Name != nil {
-						f5elemf7f5.SetName(*f5iter.Statement.ManagedRuleGroupStatement.Name)
+						f5elemf7f5.Name = f5iter.Statement.ManagedRuleGroupStatement.Name
 					}
 					if f5iter.Statement.ManagedRuleGroupStatement.RuleActionOverrides != nil {
-						f5elemf7f5f3 := []*svcsdk.RuleActionOverride{}
+						f5elemf7f5f3 := []svcsdktypes.RuleActionOverride{}
 						for _, f5elemf7f5f3iter := range f5iter.Statement.ManagedRuleGroupStatement.RuleActionOverrides {
-							f5elemf7f5f3elem := &svcsdk.RuleActionOverride{}
+							f5elemf7f5f3elem := &svcsdktypes.RuleActionOverride{}
 							if f5elemf7f5f3iter.ActionToUse != nil {
-								f5elemf7f5f3elemf0 := &svcsdk.RuleAction{}
+								f5elemf7f5f3elemf0 := &svcsdktypes.RuleAction{}
 								if f5elemf7f5f3iter.ActionToUse.Allow != nil {
-									f5elemf7f5f3elemf0f0 := &svcsdk.AllowAction{}
+									f5elemf7f5f3elemf0f0 := &svcsdktypes.AllowAction{}
 									if f5elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling != nil {
-										f5elemf7f5f3elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f5f3elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f5f3elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f5f3elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f5f3elemf0f0f0f0iter := range f5elemf7f5f3iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders {
-												f5elemf7f5f3elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f5f3elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f5f3elemf0f0f0f0iter.Name != nil {
-													f5elemf7f5f3elemf0f0f0f0elem.SetName(*f5elemf7f5f3elemf0f0f0f0iter.Name)
+													f5elemf7f5f3elemf0f0f0f0elem.Name = f5elemf7f5f3elemf0f0f0f0iter.Name
 												}
 												if f5elemf7f5f3elemf0f0f0f0iter.Value != nil {
-													f5elemf7f5f3elemf0f0f0f0elem.SetValue(*f5elemf7f5f3elemf0f0f0f0iter.Value)
+													f5elemf7f5f3elemf0f0f0f0elem.Value = f5elemf7f5f3elemf0f0f0f0iter.Value
 												}
-												f5elemf7f5f3elemf0f0f0f0 = append(f5elemf7f5f3elemf0f0f0f0, f5elemf7f5f3elemf0f0f0f0elem)
+												f5elemf7f5f3elemf0f0f0f0 = append(f5elemf7f5f3elemf0f0f0f0, *f5elemf7f5f3elemf0f0f0f0elem)
 											}
-											f5elemf7f5f3elemf0f0f0.SetInsertHeaders(f5elemf7f5f3elemf0f0f0f0)
+											f5elemf7f5f3elemf0f0f0.InsertHeaders = f5elemf7f5f3elemf0f0f0f0
 										}
-										f5elemf7f5f3elemf0f0.SetCustomRequestHandling(f5elemf7f5f3elemf0f0f0)
+										f5elemf7f5f3elemf0f0.CustomRequestHandling = f5elemf7f5f3elemf0f0f0
 									}
-									f5elemf7f5f3elemf0.SetAllow(f5elemf7f5f3elemf0f0)
+									f5elemf7f5f3elemf0.Allow = f5elemf7f5f3elemf0f0
 								}
 								if f5elemf7f5f3iter.ActionToUse.Block != nil {
-									f5elemf7f5f3elemf0f1 := &svcsdk.BlockAction{}
+									f5elemf7f5f3elemf0f1 := &svcsdktypes.BlockAction{}
 									if f5elemf7f5f3iter.ActionToUse.Block.CustomResponse != nil {
-										f5elemf7f5f3elemf0f1f0 := &svcsdk.CustomResponse{}
+										f5elemf7f5f3elemf0f1f0 := &svcsdktypes.CustomResponse{}
 										if f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey != nil {
-											f5elemf7f5f3elemf0f1f0.SetCustomResponseBodyKey(*f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey)
+											f5elemf7f5f3elemf0f1f0.CustomResponseBodyKey = f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f5elemf7f5f3elemf0f1f0.SetResponseCode(*f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											responseCodeCopy0 := *f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseCode
+											if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+											}
+											responseCodeCopy := int32(responseCodeCopy0)
+											f5elemf7f5f3elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
-											f5elemf7f5f3elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f5f3elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f5f3elemf0f1f0f2iter := range f5elemf7f5f3iter.ActionToUse.Block.CustomResponse.ResponseHeaders {
-												f5elemf7f5f3elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f5f3elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f5f3elemf0f1f0f2iter.Name != nil {
-													f5elemf7f5f3elemf0f1f0f2elem.SetName(*f5elemf7f5f3elemf0f1f0f2iter.Name)
+													f5elemf7f5f3elemf0f1f0f2elem.Name = f5elemf7f5f3elemf0f1f0f2iter.Name
 												}
 												if f5elemf7f5f3elemf0f1f0f2iter.Value != nil {
-													f5elemf7f5f3elemf0f1f0f2elem.SetValue(*f5elemf7f5f3elemf0f1f0f2iter.Value)
+													f5elemf7f5f3elemf0f1f0f2elem.Value = f5elemf7f5f3elemf0f1f0f2iter.Value
 												}
-												f5elemf7f5f3elemf0f1f0f2 = append(f5elemf7f5f3elemf0f1f0f2, f5elemf7f5f3elemf0f1f0f2elem)
+												f5elemf7f5f3elemf0f1f0f2 = append(f5elemf7f5f3elemf0f1f0f2, *f5elemf7f5f3elemf0f1f0f2elem)
 											}
-											f5elemf7f5f3elemf0f1f0.SetResponseHeaders(f5elemf7f5f3elemf0f1f0f2)
+											f5elemf7f5f3elemf0f1f0.ResponseHeaders = f5elemf7f5f3elemf0f1f0f2
 										}
-										f5elemf7f5f3elemf0f1.SetCustomResponse(f5elemf7f5f3elemf0f1f0)
+										f5elemf7f5f3elemf0f1.CustomResponse = f5elemf7f5f3elemf0f1f0
 									}
-									f5elemf7f5f3elemf0.SetBlock(f5elemf7f5f3elemf0f1)
+									f5elemf7f5f3elemf0.Block = f5elemf7f5f3elemf0f1
 								}
 								if f5elemf7f5f3iter.ActionToUse.Captcha != nil {
-									f5elemf7f5f3elemf0f2 := &svcsdk.CaptchaAction{}
+									f5elemf7f5f3elemf0f2 := &svcsdktypes.CaptchaAction{}
 									if f5elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling != nil {
-										f5elemf7f5f3elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f5f3elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f5f3elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f5f3elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f5f3elemf0f2f0f0iter := range f5elemf7f5f3iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders {
-												f5elemf7f5f3elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f5f3elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f5f3elemf0f2f0f0iter.Name != nil {
-													f5elemf7f5f3elemf0f2f0f0elem.SetName(*f5elemf7f5f3elemf0f2f0f0iter.Name)
+													f5elemf7f5f3elemf0f2f0f0elem.Name = f5elemf7f5f3elemf0f2f0f0iter.Name
 												}
 												if f5elemf7f5f3elemf0f2f0f0iter.Value != nil {
-													f5elemf7f5f3elemf0f2f0f0elem.SetValue(*f5elemf7f5f3elemf0f2f0f0iter.Value)
+													f5elemf7f5f3elemf0f2f0f0elem.Value = f5elemf7f5f3elemf0f2f0f0iter.Value
 												}
-												f5elemf7f5f3elemf0f2f0f0 = append(f5elemf7f5f3elemf0f2f0f0, f5elemf7f5f3elemf0f2f0f0elem)
+												f5elemf7f5f3elemf0f2f0f0 = append(f5elemf7f5f3elemf0f2f0f0, *f5elemf7f5f3elemf0f2f0f0elem)
 											}
-											f5elemf7f5f3elemf0f2f0.SetInsertHeaders(f5elemf7f5f3elemf0f2f0f0)
+											f5elemf7f5f3elemf0f2f0.InsertHeaders = f5elemf7f5f3elemf0f2f0f0
 										}
-										f5elemf7f5f3elemf0f2.SetCustomRequestHandling(f5elemf7f5f3elemf0f2f0)
+										f5elemf7f5f3elemf0f2.CustomRequestHandling = f5elemf7f5f3elemf0f2f0
 									}
-									f5elemf7f5f3elemf0.SetCaptcha(f5elemf7f5f3elemf0f2)
+									f5elemf7f5f3elemf0.Captcha = f5elemf7f5f3elemf0f2
 								}
 								if f5elemf7f5f3iter.ActionToUse.Challenge != nil {
-									f5elemf7f5f3elemf0f3 := &svcsdk.ChallengeAction{}
+									f5elemf7f5f3elemf0f3 := &svcsdktypes.ChallengeAction{}
 									if f5elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling != nil {
-										f5elemf7f5f3elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f5f3elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f5f3elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f5f3elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f5f3elemf0f3f0f0iter := range f5elemf7f5f3iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders {
-												f5elemf7f5f3elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f5f3elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f5f3elemf0f3f0f0iter.Name != nil {
-													f5elemf7f5f3elemf0f3f0f0elem.SetName(*f5elemf7f5f3elemf0f3f0f0iter.Name)
+													f5elemf7f5f3elemf0f3f0f0elem.Name = f5elemf7f5f3elemf0f3f0f0iter.Name
 												}
 												if f5elemf7f5f3elemf0f3f0f0iter.Value != nil {
-													f5elemf7f5f3elemf0f3f0f0elem.SetValue(*f5elemf7f5f3elemf0f3f0f0iter.Value)
+													f5elemf7f5f3elemf0f3f0f0elem.Value = f5elemf7f5f3elemf0f3f0f0iter.Value
 												}
-												f5elemf7f5f3elemf0f3f0f0 = append(f5elemf7f5f3elemf0f3f0f0, f5elemf7f5f3elemf0f3f0f0elem)
+												f5elemf7f5f3elemf0f3f0f0 = append(f5elemf7f5f3elemf0f3f0f0, *f5elemf7f5f3elemf0f3f0f0elem)
 											}
-											f5elemf7f5f3elemf0f3f0.SetInsertHeaders(f5elemf7f5f3elemf0f3f0f0)
+											f5elemf7f5f3elemf0f3f0.InsertHeaders = f5elemf7f5f3elemf0f3f0f0
 										}
-										f5elemf7f5f3elemf0f3.SetCustomRequestHandling(f5elemf7f5f3elemf0f3f0)
+										f5elemf7f5f3elemf0f3.CustomRequestHandling = f5elemf7f5f3elemf0f3f0
 									}
-									f5elemf7f5f3elemf0.SetChallenge(f5elemf7f5f3elemf0f3)
+									f5elemf7f5f3elemf0.Challenge = f5elemf7f5f3elemf0f3
 								}
 								if f5elemf7f5f3iter.ActionToUse.Count != nil {
-									f5elemf7f5f3elemf0f4 := &svcsdk.CountAction{}
+									f5elemf7f5f3elemf0f4 := &svcsdktypes.CountAction{}
 									if f5elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling != nil {
-										f5elemf7f5f3elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f5f3elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f5f3elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f5f3elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f5f3elemf0f4f0f0iter := range f5elemf7f5f3iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders {
-												f5elemf7f5f3elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f5f3elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f5f3elemf0f4f0f0iter.Name != nil {
-													f5elemf7f5f3elemf0f4f0f0elem.SetName(*f5elemf7f5f3elemf0f4f0f0iter.Name)
+													f5elemf7f5f3elemf0f4f0f0elem.Name = f5elemf7f5f3elemf0f4f0f0iter.Name
 												}
 												if f5elemf7f5f3elemf0f4f0f0iter.Value != nil {
-													f5elemf7f5f3elemf0f4f0f0elem.SetValue(*f5elemf7f5f3elemf0f4f0f0iter.Value)
+													f5elemf7f5f3elemf0f4f0f0elem.Value = f5elemf7f5f3elemf0f4f0f0iter.Value
 												}
-												f5elemf7f5f3elemf0f4f0f0 = append(f5elemf7f5f3elemf0f4f0f0, f5elemf7f5f3elemf0f4f0f0elem)
+												f5elemf7f5f3elemf0f4f0f0 = append(f5elemf7f5f3elemf0f4f0f0, *f5elemf7f5f3elemf0f4f0f0elem)
 											}
-											f5elemf7f5f3elemf0f4f0.SetInsertHeaders(f5elemf7f5f3elemf0f4f0f0)
+											f5elemf7f5f3elemf0f4f0.InsertHeaders = f5elemf7f5f3elemf0f4f0f0
 										}
-										f5elemf7f5f3elemf0f4.SetCustomRequestHandling(f5elemf7f5f3elemf0f4f0)
+										f5elemf7f5f3elemf0f4.CustomRequestHandling = f5elemf7f5f3elemf0f4f0
 									}
-									f5elemf7f5f3elemf0.SetCount(f5elemf7f5f3elemf0f4)
+									f5elemf7f5f3elemf0.Count = f5elemf7f5f3elemf0f4
 								}
-								f5elemf7f5f3elem.SetActionToUse(f5elemf7f5f3elemf0)
+								f5elemf7f5f3elem.ActionToUse = f5elemf7f5f3elemf0
 							}
 							if f5elemf7f5f3iter.Name != nil {
-								f5elemf7f5f3elem.SetName(*f5elemf7f5f3iter.Name)
+								f5elemf7f5f3elem.Name = f5elemf7f5f3iter.Name
 							}
-							f5elemf7f5f3 = append(f5elemf7f5f3, f5elemf7f5f3elem)
+							f5elemf7f5f3 = append(f5elemf7f5f3, *f5elemf7f5f3elem)
 						}
-						f5elemf7f5.SetRuleActionOverrides(f5elemf7f5f3)
+						f5elemf7f5.RuleActionOverrides = f5elemf7f5f3
 					}
 					if f5iter.Statement.ManagedRuleGroupStatement.VendorName != nil {
-						f5elemf7f5.SetVendorName(*f5iter.Statement.ManagedRuleGroupStatement.VendorName)
+						f5elemf7f5.VendorName = f5iter.Statement.ManagedRuleGroupStatement.VendorName
 					}
 					if f5iter.Statement.ManagedRuleGroupStatement.Version != nil {
-						f5elemf7f5.SetVersion(*f5iter.Statement.ManagedRuleGroupStatement.Version)
+						f5elemf7f5.Version = f5iter.Statement.ManagedRuleGroupStatement.Version
 					}
-					f5elemf7.SetManagedRuleGroupStatement(f5elemf7f5)
+					f5elemf7.ManagedRuleGroupStatement = f5elemf7f5
 				}
 				if f5iter.Statement.RateBasedStatement != nil {
-					f5elemf7f8 := &svcsdk.RateBasedStatement{}
+					f5elemf7f8 := &svcsdktypes.RateBasedStatement{}
 					if f5iter.Statement.RateBasedStatement.AggregateKeyType != nil {
-						f5elemf7f8.SetAggregateKeyType(*f5iter.Statement.RateBasedStatement.AggregateKeyType)
+						f5elemf7f8.AggregateKeyType = svcsdktypes.RateBasedStatementAggregateKeyType(*f5iter.Statement.RateBasedStatement.AggregateKeyType)
 					}
 					if f5iter.Statement.RateBasedStatement.CustomKeys != nil {
-						f5elemf7f8f1 := []*svcsdk.RateBasedStatementCustomKey{}
+						f5elemf7f8f1 := []svcsdktypes.RateBasedStatementCustomKey{}
 						for _, f5elemf7f8f1iter := range f5iter.Statement.RateBasedStatement.CustomKeys {
-							f5elemf7f8f1elem := &svcsdk.RateBasedStatementCustomKey{}
+							f5elemf7f8f1elem := &svcsdktypes.RateBasedStatementCustomKey{}
 							if f5elemf7f8f1iter.Cookie != nil {
-								f5elemf7f8f1elemf0 := &svcsdk.RateLimitCookie{}
+								f5elemf7f8f1elemf0 := &svcsdktypes.RateLimitCookie{}
 								if f5elemf7f8f1iter.Cookie.Name != nil {
-									f5elemf7f8f1elemf0.SetName(*f5elemf7f8f1iter.Cookie.Name)
+									f5elemf7f8f1elemf0.Name = f5elemf7f8f1iter.Cookie.Name
 								}
 								if f5elemf7f8f1iter.Cookie.TextTransformations != nil {
-									f5elemf7f8f1elemf0f1 := []*svcsdk.TextTransformation{}
+									f5elemf7f8f1elemf0f1 := []svcsdktypes.TextTransformation{}
 									for _, f5elemf7f8f1elemf0f1iter := range f5elemf7f8f1iter.Cookie.TextTransformations {
-										f5elemf7f8f1elemf0f1elem := &svcsdk.TextTransformation{}
+										f5elemf7f8f1elemf0f1elem := &svcsdktypes.TextTransformation{}
 										if f5elemf7f8f1elemf0f1iter.Priority != nil {
-											f5elemf7f8f1elemf0f1elem.SetPriority(*f5elemf7f8f1elemf0f1iter.Priority)
+											priorityCopy0 := *f5elemf7f8f1elemf0f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f5elemf7f8f1elemf0f1elem.Priority = priorityCopy
 										}
 										if f5elemf7f8f1elemf0f1iter.Type != nil {
-											f5elemf7f8f1elemf0f1elem.SetType(*f5elemf7f8f1elemf0f1iter.Type)
+											f5elemf7f8f1elemf0f1elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f8f1elemf0f1iter.Type)
 										}
-										f5elemf7f8f1elemf0f1 = append(f5elemf7f8f1elemf0f1, f5elemf7f8f1elemf0f1elem)
+										f5elemf7f8f1elemf0f1 = append(f5elemf7f8f1elemf0f1, *f5elemf7f8f1elemf0f1elem)
 									}
-									f5elemf7f8f1elemf0.SetTextTransformations(f5elemf7f8f1elemf0f1)
+									f5elemf7f8f1elemf0.TextTransformations = f5elemf7f8f1elemf0f1
 								}
-								f5elemf7f8f1elem.SetCookie(f5elemf7f8f1elemf0)
+								f5elemf7f8f1elem.Cookie = f5elemf7f8f1elemf0
 							}
 							if f5elemf7f8f1iter.ForwardedIP != nil {
-								f5elemf7f8f1elemf1 := &svcsdk.RateLimitForwardedIP{}
-								f5elemf7f8f1elem.SetForwardedIP(f5elemf7f8f1elemf1)
+								f5elemf7f8f1elemf1 := &svcsdktypes.RateLimitForwardedIP{}
+								f5elemf7f8f1elem.ForwardedIP = f5elemf7f8f1elemf1
 							}
 							if f5elemf7f8f1iter.HTTPMethod != nil {
-								f5elemf7f8f1elemf2 := &svcsdk.RateLimitHTTPMethod{}
-								f5elemf7f8f1elem.SetHTTPMethod(f5elemf7f8f1elemf2)
+								f5elemf7f8f1elemf2 := &svcsdktypes.RateLimitHTTPMethod{}
+								f5elemf7f8f1elem.HTTPMethod = f5elemf7f8f1elemf2
 							}
 							if f5elemf7f8f1iter.Header != nil {
-								f5elemf7f8f1elemf3 := &svcsdk.RateLimitHeader{}
+								f5elemf7f8f1elemf3 := &svcsdktypes.RateLimitHeader{}
 								if f5elemf7f8f1iter.Header.Name != nil {
-									f5elemf7f8f1elemf3.SetName(*f5elemf7f8f1iter.Header.Name)
+									f5elemf7f8f1elemf3.Name = f5elemf7f8f1iter.Header.Name
 								}
 								if f5elemf7f8f1iter.Header.TextTransformations != nil {
-									f5elemf7f8f1elemf3f1 := []*svcsdk.TextTransformation{}
+									f5elemf7f8f1elemf3f1 := []svcsdktypes.TextTransformation{}
 									for _, f5elemf7f8f1elemf3f1iter := range f5elemf7f8f1iter.Header.TextTransformations {
-										f5elemf7f8f1elemf3f1elem := &svcsdk.TextTransformation{}
+										f5elemf7f8f1elemf3f1elem := &svcsdktypes.TextTransformation{}
 										if f5elemf7f8f1elemf3f1iter.Priority != nil {
-											f5elemf7f8f1elemf3f1elem.SetPriority(*f5elemf7f8f1elemf3f1iter.Priority)
+											priorityCopy0 := *f5elemf7f8f1elemf3f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f5elemf7f8f1elemf3f1elem.Priority = priorityCopy
 										}
 										if f5elemf7f8f1elemf3f1iter.Type != nil {
-											f5elemf7f8f1elemf3f1elem.SetType(*f5elemf7f8f1elemf3f1iter.Type)
+											f5elemf7f8f1elemf3f1elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f8f1elemf3f1iter.Type)
 										}
-										f5elemf7f8f1elemf3f1 = append(f5elemf7f8f1elemf3f1, f5elemf7f8f1elemf3f1elem)
+										f5elemf7f8f1elemf3f1 = append(f5elemf7f8f1elemf3f1, *f5elemf7f8f1elemf3f1elem)
 									}
-									f5elemf7f8f1elemf3.SetTextTransformations(f5elemf7f8f1elemf3f1)
+									f5elemf7f8f1elemf3.TextTransformations = f5elemf7f8f1elemf3f1
 								}
-								f5elemf7f8f1elem.SetHeader(f5elemf7f8f1elemf3)
+								f5elemf7f8f1elem.Header = f5elemf7f8f1elemf3
 							}
 							if f5elemf7f8f1iter.IP != nil {
-								f5elemf7f8f1elemf4 := &svcsdk.RateLimitIP{}
-								f5elemf7f8f1elem.SetIP(f5elemf7f8f1elemf4)
+								f5elemf7f8f1elemf4 := &svcsdktypes.RateLimitIP{}
+								f5elemf7f8f1elem.IP = f5elemf7f8f1elemf4
 							}
 							if f5elemf7f8f1iter.LabelNamespace != nil {
-								f5elemf7f8f1elemf5 := &svcsdk.RateLimitLabelNamespace{}
+								f5elemf7f8f1elemf5 := &svcsdktypes.RateLimitLabelNamespace{}
 								if f5elemf7f8f1iter.LabelNamespace.Namespace != nil {
-									f5elemf7f8f1elemf5.SetNamespace(*f5elemf7f8f1iter.LabelNamespace.Namespace)
+									f5elemf7f8f1elemf5.Namespace = f5elemf7f8f1iter.LabelNamespace.Namespace
 								}
-								f5elemf7f8f1elem.SetLabelNamespace(f5elemf7f8f1elemf5)
+								f5elemf7f8f1elem.LabelNamespace = f5elemf7f8f1elemf5
 							}
 							if f5elemf7f8f1iter.QueryArgument != nil {
-								f5elemf7f8f1elemf6 := &svcsdk.RateLimitQueryArgument{}
+								f5elemf7f8f1elemf6 := &svcsdktypes.RateLimitQueryArgument{}
 								if f5elemf7f8f1iter.QueryArgument.Name != nil {
-									f5elemf7f8f1elemf6.SetName(*f5elemf7f8f1iter.QueryArgument.Name)
+									f5elemf7f8f1elemf6.Name = f5elemf7f8f1iter.QueryArgument.Name
 								}
 								if f5elemf7f8f1iter.QueryArgument.TextTransformations != nil {
-									f5elemf7f8f1elemf6f1 := []*svcsdk.TextTransformation{}
+									f5elemf7f8f1elemf6f1 := []svcsdktypes.TextTransformation{}
 									for _, f5elemf7f8f1elemf6f1iter := range f5elemf7f8f1iter.QueryArgument.TextTransformations {
-										f5elemf7f8f1elemf6f1elem := &svcsdk.TextTransformation{}
+										f5elemf7f8f1elemf6f1elem := &svcsdktypes.TextTransformation{}
 										if f5elemf7f8f1elemf6f1iter.Priority != nil {
-											f5elemf7f8f1elemf6f1elem.SetPriority(*f5elemf7f8f1elemf6f1iter.Priority)
+											priorityCopy0 := *f5elemf7f8f1elemf6f1iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f5elemf7f8f1elemf6f1elem.Priority = priorityCopy
 										}
 										if f5elemf7f8f1elemf6f1iter.Type != nil {
-											f5elemf7f8f1elemf6f1elem.SetType(*f5elemf7f8f1elemf6f1iter.Type)
+											f5elemf7f8f1elemf6f1elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f8f1elemf6f1iter.Type)
 										}
-										f5elemf7f8f1elemf6f1 = append(f5elemf7f8f1elemf6f1, f5elemf7f8f1elemf6f1elem)
+										f5elemf7f8f1elemf6f1 = append(f5elemf7f8f1elemf6f1, *f5elemf7f8f1elemf6f1elem)
 									}
-									f5elemf7f8f1elemf6.SetTextTransformations(f5elemf7f8f1elemf6f1)
+									f5elemf7f8f1elemf6.TextTransformations = f5elemf7f8f1elemf6f1
 								}
-								f5elemf7f8f1elem.SetQueryArgument(f5elemf7f8f1elemf6)
+								f5elemf7f8f1elem.QueryArgument = f5elemf7f8f1elemf6
 							}
 							if f5elemf7f8f1iter.QueryString != nil {
-								f5elemf7f8f1elemf7 := &svcsdk.RateLimitQueryString{}
+								f5elemf7f8f1elemf7 := &svcsdktypes.RateLimitQueryString{}
 								if f5elemf7f8f1iter.QueryString.TextTransformations != nil {
-									f5elemf7f8f1elemf7f0 := []*svcsdk.TextTransformation{}
+									f5elemf7f8f1elemf7f0 := []svcsdktypes.TextTransformation{}
 									for _, f5elemf7f8f1elemf7f0iter := range f5elemf7f8f1iter.QueryString.TextTransformations {
-										f5elemf7f8f1elemf7f0elem := &svcsdk.TextTransformation{}
+										f5elemf7f8f1elemf7f0elem := &svcsdktypes.TextTransformation{}
 										if f5elemf7f8f1elemf7f0iter.Priority != nil {
-											f5elemf7f8f1elemf7f0elem.SetPriority(*f5elemf7f8f1elemf7f0iter.Priority)
+											priorityCopy0 := *f5elemf7f8f1elemf7f0iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f5elemf7f8f1elemf7f0elem.Priority = priorityCopy
 										}
 										if f5elemf7f8f1elemf7f0iter.Type != nil {
-											f5elemf7f8f1elemf7f0elem.SetType(*f5elemf7f8f1elemf7f0iter.Type)
+											f5elemf7f8f1elemf7f0elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f8f1elemf7f0iter.Type)
 										}
-										f5elemf7f8f1elemf7f0 = append(f5elemf7f8f1elemf7f0, f5elemf7f8f1elemf7f0elem)
+										f5elemf7f8f1elemf7f0 = append(f5elemf7f8f1elemf7f0, *f5elemf7f8f1elemf7f0elem)
 									}
-									f5elemf7f8f1elemf7.SetTextTransformations(f5elemf7f8f1elemf7f0)
+									f5elemf7f8f1elemf7.TextTransformations = f5elemf7f8f1elemf7f0
 								}
-								f5elemf7f8f1elem.SetQueryString(f5elemf7f8f1elemf7)
+								f5elemf7f8f1elem.QueryString = f5elemf7f8f1elemf7
 							}
 							if f5elemf7f8f1iter.URIPath != nil {
-								f5elemf7f8f1elemf8 := &svcsdk.RateLimitUriPath{}
+								f5elemf7f8f1elemf8 := &svcsdktypes.RateLimitUriPath{}
 								if f5elemf7f8f1iter.URIPath.TextTransformations != nil {
-									f5elemf7f8f1elemf8f0 := []*svcsdk.TextTransformation{}
+									f5elemf7f8f1elemf8f0 := []svcsdktypes.TextTransformation{}
 									for _, f5elemf7f8f1elemf8f0iter := range f5elemf7f8f1iter.URIPath.TextTransformations {
-										f5elemf7f8f1elemf8f0elem := &svcsdk.TextTransformation{}
+										f5elemf7f8f1elemf8f0elem := &svcsdktypes.TextTransformation{}
 										if f5elemf7f8f1elemf8f0iter.Priority != nil {
-											f5elemf7f8f1elemf8f0elem.SetPriority(*f5elemf7f8f1elemf8f0iter.Priority)
+											priorityCopy0 := *f5elemf7f8f1elemf8f0iter.Priority
+											if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field Priority is of type int32")
+											}
+											priorityCopy := int32(priorityCopy0)
+											f5elemf7f8f1elemf8f0elem.Priority = priorityCopy
 										}
 										if f5elemf7f8f1elemf8f0iter.Type != nil {
-											f5elemf7f8f1elemf8f0elem.SetType(*f5elemf7f8f1elemf8f0iter.Type)
+											f5elemf7f8f1elemf8f0elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f8f1elemf8f0iter.Type)
 										}
-										f5elemf7f8f1elemf8f0 = append(f5elemf7f8f1elemf8f0, f5elemf7f8f1elemf8f0elem)
+										f5elemf7f8f1elemf8f0 = append(f5elemf7f8f1elemf8f0, *f5elemf7f8f1elemf8f0elem)
 									}
-									f5elemf7f8f1elemf8.SetTextTransformations(f5elemf7f8f1elemf8f0)
+									f5elemf7f8f1elemf8.TextTransformations = f5elemf7f8f1elemf8f0
 								}
-								f5elemf7f8f1elem.SetUriPath(f5elemf7f8f1elemf8)
+								f5elemf7f8f1elem.UriPath = f5elemf7f8f1elemf8
 							}
-							f5elemf7f8f1 = append(f5elemf7f8f1, f5elemf7f8f1elem)
+							f5elemf7f8f1 = append(f5elemf7f8f1, *f5elemf7f8f1elem)
 						}
-						f5elemf7f8.SetCustomKeys(f5elemf7f8f1)
+						f5elemf7f8.CustomKeys = f5elemf7f8f1
 					}
 					if f5iter.Statement.RateBasedStatement.EvaluationWindowSec != nil {
-						f5elemf7f8.SetEvaluationWindowSec(*f5iter.Statement.RateBasedStatement.EvaluationWindowSec)
+						f5elemf7f8.EvaluationWindowSec = *f5iter.Statement.RateBasedStatement.EvaluationWindowSec
 					}
 					if f5iter.Statement.RateBasedStatement.ForwardedIPConfig != nil {
-						f5elemf7f8f3 := &svcsdk.ForwardedIPConfig{}
+						f5elemf7f8f3 := &svcsdktypes.ForwardedIPConfig{}
 						if f5iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior != nil {
-							f5elemf7f8f3.SetFallbackBehavior(*f5iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior)
+							f5elemf7f8f3.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.RateBasedStatement.ForwardedIPConfig.FallbackBehavior)
 						}
 						if f5iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName != nil {
-							f5elemf7f8f3.SetHeaderName(*f5iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName)
+							f5elemf7f8f3.HeaderName = f5iter.Statement.RateBasedStatement.ForwardedIPConfig.HeaderName
 						}
-						f5elemf7f8.SetForwardedIPConfig(f5elemf7f8f3)
+						f5elemf7f8.ForwardedIPConfig = f5elemf7f8f3
 					}
 					if f5iter.Statement.RateBasedStatement.Limit != nil {
-						f5elemf7f8.SetLimit(*f5iter.Statement.RateBasedStatement.Limit)
+						f5elemf7f8.Limit = f5iter.Statement.RateBasedStatement.Limit
 					}
-					f5elemf7.SetRateBasedStatement(f5elemf7f8)
+					f5elemf7.RateBasedStatement = f5elemf7f8
 				}
 				if f5iter.Statement.RegexMatchStatement != nil {
-					f5elemf7f9 := &svcsdk.RegexMatchStatement{}
+					f5elemf7f9 := &svcsdktypes.RegexMatchStatement{}
 					if f5iter.Statement.RegexMatchStatement.FieldToMatch != nil {
-						f5elemf7f9f0 := &svcsdk.FieldToMatch{}
+						f5elemf7f9f0 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f9f0f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f9f0.SetAllQueryArguments(f5elemf7f9f0f0)
+							f5elemf7f9f0f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f9f0.AllQueryArguments = f5elemf7f9f0f0
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.Body != nil {
-							f5elemf7f9f0f1 := &svcsdk.Body{}
+							f5elemf7f9f0f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f9f0f1.SetOversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f9f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f9f0.SetBody(f5elemf7f9f0f1)
+							f5elemf7f9f0.Body = f5elemf7f9f0f1
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f9f0f2 := &svcsdk.Cookies{}
+							f5elemf7f9f0f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f9f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f9f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f9f0f2f0f0 := &svcsdk.All{}
-									f5elemf7f9f0f2f0.SetAll(f5elemf7f9f0f2f0f0)
+									f5elemf7f9f0f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f9f0f2f0.All = f5elemf7f9f0f2f0f0
 								}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f9f0f2f0f1 := []*string{}
-									for _, f5elemf7f9f0f2f0f1iter := range f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f9f0f2f0f1elem string
-										f5elemf7f9f0f2f0f1elem = *f5elemf7f9f0f2f0f1iter
-										f5elemf7f9f0f2f0f1 = append(f5elemf7f9f0f2f0f1, &f5elemf7f9f0f2f0f1elem)
-									}
-									f5elemf7f9f0f2f0.SetExcludedCookies(f5elemf7f9f0f2f0f1)
+									f5elemf7f9f0f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f9f0f2f0f2 := []*string{}
-									for _, f5elemf7f9f0f2f0f2iter := range f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f9f0f2f0f2elem string
-										f5elemf7f9f0f2f0f2elem = *f5elemf7f9f0f2f0f2iter
-										f5elemf7f9f0f2f0f2 = append(f5elemf7f9f0f2f0f2, &f5elemf7f9f0f2f0f2elem)
-									}
-									f5elemf7f9f0f2f0.SetIncludedCookies(f5elemf7f9f0f2f0f2)
+									f5elemf7f9f0f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f9f0f2.SetMatchPattern(f5elemf7f9f0f2f0)
+								f5elemf7f9f0f2.MatchPattern = f5elemf7f9f0f2f0
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f9f0f2.SetMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f9f0f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f9f0f2.SetOversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f9f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f9f0.SetCookies(f5elemf7f9f0f2)
+							f5elemf7f9f0.Cookies = f5elemf7f9f0f2
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f9f0f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f9f0f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f9f0f3.SetOversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f9f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f9f0.SetHeaderOrder(f5elemf7f9f0f3)
+							f5elemf7f9f0.HeaderOrder = f5elemf7f9f0f3
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers != nil {
-							f5elemf7f9f0f4 := &svcsdk.Headers{}
+							f5elemf7f9f0f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f9f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f9f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f9f0f4f0f0 := &svcsdk.All{}
-									f5elemf7f9f0f4f0.SetAll(f5elemf7f9f0f4f0f0)
+									f5elemf7f9f0f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f9f0f4f0.All = f5elemf7f9f0f4f0f0
 								}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f9f0f4f0f1 := []*string{}
-									for _, f5elemf7f9f0f4f0f1iter := range f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f9f0f4f0f1elem string
-										f5elemf7f9f0f4f0f1elem = *f5elemf7f9f0f4f0f1iter
-										f5elemf7f9f0f4f0f1 = append(f5elemf7f9f0f4f0f1, &f5elemf7f9f0f4f0f1elem)
-									}
-									f5elemf7f9f0f4f0.SetExcludedHeaders(f5elemf7f9f0f4f0f1)
+									f5elemf7f9f0f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f9f0f4f0f2 := []*string{}
-									for _, f5elemf7f9f0f4f0f2iter := range f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f9f0f4f0f2elem string
-										f5elemf7f9f0f4f0f2elem = *f5elemf7f9f0f4f0f2iter
-										f5elemf7f9f0f4f0f2 = append(f5elemf7f9f0f4f0f2, &f5elemf7f9f0f4f0f2elem)
-									}
-									f5elemf7f9f0f4f0.SetIncludedHeaders(f5elemf7f9f0f4f0f2)
+									f5elemf7f9f0f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f9f0f4.SetMatchPattern(f5elemf7f9f0f4f0)
+								f5elemf7f9f0f4.MatchPattern = f5elemf7f9f0f4f0
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f9f0f4.SetMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f9f0f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f9f0f4.SetOversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f9f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f9f0.SetHeaders(f5elemf7f9f0f4)
+							f5elemf7f9f0.Headers = f5elemf7f9f0f4
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f9f0f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f9f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f9f0f5.SetFallbackBehavior(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f9f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f9f0.SetJA3Fingerprint(f5elemf7f9f0f5)
+							f5elemf7f9f0.JA3Fingerprint = f5elemf7f9f0f5
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f9f0f6 := &svcsdk.JsonBody{}
+							f5elemf7f9f0f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f9f0f6.SetInvalidFallbackBehavior(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f9f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f9f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f9f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f9f0f6f1f0 := &svcsdk.All{}
-									f5elemf7f9f0f6f1.SetAll(f5elemf7f9f0f6f1f0)
+									f5elemf7f9f0f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f9f0f6f1.All = f5elemf7f9f0f6f1f0
 								}
 								if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f9f0f6f1f1 := []*string{}
-									for _, f5elemf7f9f0f6f1f1iter := range f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f9f0f6f1f1elem string
-										f5elemf7f9f0f6f1f1elem = *f5elemf7f9f0f6f1f1iter
-										f5elemf7f9f0f6f1f1 = append(f5elemf7f9f0f6f1f1, &f5elemf7f9f0f6f1f1elem)
-									}
-									f5elemf7f9f0f6f1.SetIncludedPaths(f5elemf7f9f0f6f1f1)
+									f5elemf7f9f0f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f9f0f6.SetMatchPattern(f5elemf7f9f0f6f1)
+								f5elemf7f9f0f6.MatchPattern = f5elemf7f9f0f6f1
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f9f0f6.SetMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f9f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f9f0f6.SetOversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f9f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f9f0.SetJsonBody(f5elemf7f9f0f6)
+							f5elemf7f9f0.JsonBody = f5elemf7f9f0f6
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.Method != nil {
-							f5elemf7f9f0f7 := &svcsdk.Method{}
-							f5elemf7f9f0.SetMethod(f5elemf7f9f0f7)
+							f5elemf7f9f0f7 := &svcsdktypes.Method{}
+							f5elemf7f9f0.Method = f5elemf7f9f0f7
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f9f0f8 := &svcsdk.QueryString{}
-							f5elemf7f9f0.SetQueryString(f5elemf7f9f0f8)
+							f5elemf7f9f0f8 := &svcsdktypes.QueryString{}
+							f5elemf7f9f0.QueryString = f5elemf7f9f0f8
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f9f0f9 := &svcsdk.SingleHeader{}
+							f5elemf7f9f0f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f9f0f9.SetName(*f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f9f0f9.Name = f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f9f0.SetSingleHeader(f5elemf7f9f0f9)
+							f5elemf7f9f0.SingleHeader = f5elemf7f9f0f9
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f9f0f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f9f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f9f0f10.SetName(*f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f9f0f10.Name = f5iter.Statement.RegexMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f9f0.SetSingleQueryArgument(f5elemf7f9f0f10)
+							f5elemf7f9f0.SingleQueryArgument = f5elemf7f9f0f10
 						}
 						if f5iter.Statement.RegexMatchStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f9f0f11 := &svcsdk.UriPath{}
-							f5elemf7f9f0.SetUriPath(f5elemf7f9f0f11)
+							f5elemf7f9f0f11 := &svcsdktypes.UriPath{}
+							f5elemf7f9f0.UriPath = f5elemf7f9f0f11
 						}
-						f5elemf7f9.SetFieldToMatch(f5elemf7f9f0)
+						f5elemf7f9.FieldToMatch = f5elemf7f9f0
 					}
 					if f5iter.Statement.RegexMatchStatement.RegexString != nil {
-						f5elemf7f9.SetRegexString(*f5iter.Statement.RegexMatchStatement.RegexString)
+						f5elemf7f9.RegexString = f5iter.Statement.RegexMatchStatement.RegexString
 					}
 					if f5iter.Statement.RegexMatchStatement.TextTransformations != nil {
-						f5elemf7f9f2 := []*svcsdk.TextTransformation{}
+						f5elemf7f9f2 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f9f2iter := range f5iter.Statement.RegexMatchStatement.TextTransformations {
-							f5elemf7f9f2elem := &svcsdk.TextTransformation{}
+							f5elemf7f9f2elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f9f2iter.Priority != nil {
-								f5elemf7f9f2elem.SetPriority(*f5elemf7f9f2iter.Priority)
+								priorityCopy0 := *f5elemf7f9f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f9f2elem.Priority = priorityCopy
 							}
 							if f5elemf7f9f2iter.Type != nil {
-								f5elemf7f9f2elem.SetType(*f5elemf7f9f2iter.Type)
+								f5elemf7f9f2elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f9f2iter.Type)
 							}
-							f5elemf7f9f2 = append(f5elemf7f9f2, f5elemf7f9f2elem)
+							f5elemf7f9f2 = append(f5elemf7f9f2, *f5elemf7f9f2elem)
 						}
-						f5elemf7f9.SetTextTransformations(f5elemf7f9f2)
+						f5elemf7f9.TextTransformations = f5elemf7f9f2
 					}
-					f5elemf7.SetRegexMatchStatement(f5elemf7f9)
+					f5elemf7.RegexMatchStatement = f5elemf7f9
 				}
 				if f5iter.Statement.RegexPatternSetReferenceStatement != nil {
-					f5elemf7f10 := &svcsdk.RegexPatternSetReferenceStatement{}
+					f5elemf7f10 := &svcsdktypes.RegexPatternSetReferenceStatement{}
 					if f5iter.Statement.RegexPatternSetReferenceStatement.ARN != nil {
-						f5elemf7f10.SetARN(*f5iter.Statement.RegexPatternSetReferenceStatement.ARN)
+						f5elemf7f10.ARN = f5iter.Statement.RegexPatternSetReferenceStatement.ARN
 					}
 					if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch != nil {
-						f5elemf7f10f1 := &svcsdk.FieldToMatch{}
+						f5elemf7f10f1 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f10f1f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f10f1.SetAllQueryArguments(f5elemf7f10f1f0)
+							f5elemf7f10f1f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f10f1.AllQueryArguments = f5elemf7f10f1f0
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body != nil {
-							f5elemf7f10f1f1 := &svcsdk.Body{}
+							f5elemf7f10f1f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f10f1f1.SetOversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f10f1f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f10f1.SetBody(f5elemf7f10f1f1)
+							f5elemf7f10f1.Body = f5elemf7f10f1f1
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f10f1f2 := &svcsdk.Cookies{}
+							f5elemf7f10f1f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f10f1f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f10f1f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f10f1f2f0f0 := &svcsdk.All{}
-									f5elemf7f10f1f2f0.SetAll(f5elemf7f10f1f2f0f0)
+									f5elemf7f10f1f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f10f1f2f0.All = f5elemf7f10f1f2f0f0
 								}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f10f1f2f0f1 := []*string{}
-									for _, f5elemf7f10f1f2f0f1iter := range f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f10f1f2f0f1elem string
-										f5elemf7f10f1f2f0f1elem = *f5elemf7f10f1f2f0f1iter
-										f5elemf7f10f1f2f0f1 = append(f5elemf7f10f1f2f0f1, &f5elemf7f10f1f2f0f1elem)
-									}
-									f5elemf7f10f1f2f0.SetExcludedCookies(f5elemf7f10f1f2f0f1)
+									f5elemf7f10f1f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f10f1f2f0f2 := []*string{}
-									for _, f5elemf7f10f1f2f0f2iter := range f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f10f1f2f0f2elem string
-										f5elemf7f10f1f2f0f2elem = *f5elemf7f10f1f2f0f2iter
-										f5elemf7f10f1f2f0f2 = append(f5elemf7f10f1f2f0f2, &f5elemf7f10f1f2f0f2elem)
-									}
-									f5elemf7f10f1f2f0.SetIncludedCookies(f5elemf7f10f1f2f0f2)
+									f5elemf7f10f1f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f10f1f2.SetMatchPattern(f5elemf7f10f1f2f0)
+								f5elemf7f10f1f2.MatchPattern = f5elemf7f10f1f2f0
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f10f1f2.SetMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f10f1f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f10f1f2.SetOversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f10f1f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f10f1.SetCookies(f5elemf7f10f1f2)
+							f5elemf7f10f1.Cookies = f5elemf7f10f1f2
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f10f1f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f10f1f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f10f1f3.SetOversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f10f1f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f10f1.SetHeaderOrder(f5elemf7f10f1f3)
+							f5elemf7f10f1.HeaderOrder = f5elemf7f10f1f3
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers != nil {
-							f5elemf7f10f1f4 := &svcsdk.Headers{}
+							f5elemf7f10f1f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f10f1f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f10f1f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f10f1f4f0f0 := &svcsdk.All{}
-									f5elemf7f10f1f4f0.SetAll(f5elemf7f10f1f4f0f0)
+									f5elemf7f10f1f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f10f1f4f0.All = f5elemf7f10f1f4f0f0
 								}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f10f1f4f0f1 := []*string{}
-									for _, f5elemf7f10f1f4f0f1iter := range f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f10f1f4f0f1elem string
-										f5elemf7f10f1f4f0f1elem = *f5elemf7f10f1f4f0f1iter
-										f5elemf7f10f1f4f0f1 = append(f5elemf7f10f1f4f0f1, &f5elemf7f10f1f4f0f1elem)
-									}
-									f5elemf7f10f1f4f0.SetExcludedHeaders(f5elemf7f10f1f4f0f1)
+									f5elemf7f10f1f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f10f1f4f0f2 := []*string{}
-									for _, f5elemf7f10f1f4f0f2iter := range f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f10f1f4f0f2elem string
-										f5elemf7f10f1f4f0f2elem = *f5elemf7f10f1f4f0f2iter
-										f5elemf7f10f1f4f0f2 = append(f5elemf7f10f1f4f0f2, &f5elemf7f10f1f4f0f2elem)
-									}
-									f5elemf7f10f1f4f0.SetIncludedHeaders(f5elemf7f10f1f4f0f2)
+									f5elemf7f10f1f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f10f1f4.SetMatchPattern(f5elemf7f10f1f4f0)
+								f5elemf7f10f1f4.MatchPattern = f5elemf7f10f1f4f0
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f10f1f4.SetMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f10f1f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f10f1f4.SetOversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f10f1f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f10f1.SetHeaders(f5elemf7f10f1f4)
+							f5elemf7f10f1.Headers = f5elemf7f10f1f4
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f10f1f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f10f1f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f10f1f5.SetFallbackBehavior(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f10f1f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f10f1.SetJA3Fingerprint(f5elemf7f10f1f5)
+							f5elemf7f10f1.JA3Fingerprint = f5elemf7f10f1f5
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f10f1f6 := &svcsdk.JsonBody{}
+							f5elemf7f10f1f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f10f1f6.SetInvalidFallbackBehavior(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f10f1f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f10f1f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f10f1f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f10f1f6f1f0 := &svcsdk.All{}
-									f5elemf7f10f1f6f1.SetAll(f5elemf7f10f1f6f1f0)
+									f5elemf7f10f1f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f10f1f6f1.All = f5elemf7f10f1f6f1f0
 								}
 								if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f10f1f6f1f1 := []*string{}
-									for _, f5elemf7f10f1f6f1f1iter := range f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f10f1f6f1f1elem string
-										f5elemf7f10f1f6f1f1elem = *f5elemf7f10f1f6f1f1iter
-										f5elemf7f10f1f6f1f1 = append(f5elemf7f10f1f6f1f1, &f5elemf7f10f1f6f1f1elem)
-									}
-									f5elemf7f10f1f6f1.SetIncludedPaths(f5elemf7f10f1f6f1f1)
+									f5elemf7f10f1f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f10f1f6.SetMatchPattern(f5elemf7f10f1f6f1)
+								f5elemf7f10f1f6.MatchPattern = f5elemf7f10f1f6f1
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f10f1f6.SetMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f10f1f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f10f1f6.SetOversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f10f1f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f10f1.SetJsonBody(f5elemf7f10f1f6)
+							f5elemf7f10f1.JsonBody = f5elemf7f10f1f6
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.Method != nil {
-							f5elemf7f10f1f7 := &svcsdk.Method{}
-							f5elemf7f10f1.SetMethod(f5elemf7f10f1f7)
+							f5elemf7f10f1f7 := &svcsdktypes.Method{}
+							f5elemf7f10f1.Method = f5elemf7f10f1f7
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f10f1f8 := &svcsdk.QueryString{}
-							f5elemf7f10f1.SetQueryString(f5elemf7f10f1f8)
+							f5elemf7f10f1f8 := &svcsdktypes.QueryString{}
+							f5elemf7f10f1.QueryString = f5elemf7f10f1f8
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f10f1f9 := &svcsdk.SingleHeader{}
+							f5elemf7f10f1f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f10f1f9.SetName(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f10f1f9.Name = f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f10f1.SetSingleHeader(f5elemf7f10f1f9)
+							f5elemf7f10f1.SingleHeader = f5elemf7f10f1f9
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f10f1f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f10f1f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f10f1f10.SetName(*f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f10f1f10.Name = f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f10f1.SetSingleQueryArgument(f5elemf7f10f1f10)
+							f5elemf7f10f1.SingleQueryArgument = f5elemf7f10f1f10
 						}
 						if f5iter.Statement.RegexPatternSetReferenceStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f10f1f11 := &svcsdk.UriPath{}
-							f5elemf7f10f1.SetUriPath(f5elemf7f10f1f11)
+							f5elemf7f10f1f11 := &svcsdktypes.UriPath{}
+							f5elemf7f10f1.UriPath = f5elemf7f10f1f11
 						}
-						f5elemf7f10.SetFieldToMatch(f5elemf7f10f1)
+						f5elemf7f10.FieldToMatch = f5elemf7f10f1
 					}
 					if f5iter.Statement.RegexPatternSetReferenceStatement.TextTransformations != nil {
-						f5elemf7f10f2 := []*svcsdk.TextTransformation{}
+						f5elemf7f10f2 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f10f2iter := range f5iter.Statement.RegexPatternSetReferenceStatement.TextTransformations {
-							f5elemf7f10f2elem := &svcsdk.TextTransformation{}
+							f5elemf7f10f2elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f10f2iter.Priority != nil {
-								f5elemf7f10f2elem.SetPriority(*f5elemf7f10f2iter.Priority)
+								priorityCopy0 := *f5elemf7f10f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f10f2elem.Priority = priorityCopy
 							}
 							if f5elemf7f10f2iter.Type != nil {
-								f5elemf7f10f2elem.SetType(*f5elemf7f10f2iter.Type)
+								f5elemf7f10f2elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f10f2iter.Type)
 							}
-							f5elemf7f10f2 = append(f5elemf7f10f2, f5elemf7f10f2elem)
+							f5elemf7f10f2 = append(f5elemf7f10f2, *f5elemf7f10f2elem)
 						}
-						f5elemf7f10.SetTextTransformations(f5elemf7f10f2)
+						f5elemf7f10.TextTransformations = f5elemf7f10f2
 					}
-					f5elemf7.SetRegexPatternSetReferenceStatement(f5elemf7f10)
+					f5elemf7.RegexPatternSetReferenceStatement = f5elemf7f10
 				}
 				if f5iter.Statement.RuleGroupReferenceStatement != nil {
-					f5elemf7f11 := &svcsdk.RuleGroupReferenceStatement{}
+					f5elemf7f11 := &svcsdktypes.RuleGroupReferenceStatement{}
 					if f5iter.Statement.RuleGroupReferenceStatement.ARN != nil {
-						f5elemf7f11.SetARN(*f5iter.Statement.RuleGroupReferenceStatement.ARN)
+						f5elemf7f11.ARN = f5iter.Statement.RuleGroupReferenceStatement.ARN
 					}
 					if f5iter.Statement.RuleGroupReferenceStatement.ExcludedRules != nil {
-						f5elemf7f11f1 := []*svcsdk.ExcludedRule{}
+						f5elemf7f11f1 := []svcsdktypes.ExcludedRule{}
 						for _, f5elemf7f11f1iter := range f5iter.Statement.RuleGroupReferenceStatement.ExcludedRules {
-							f5elemf7f11f1elem := &svcsdk.ExcludedRule{}
+							f5elemf7f11f1elem := &svcsdktypes.ExcludedRule{}
 							if f5elemf7f11f1iter.Name != nil {
-								f5elemf7f11f1elem.SetName(*f5elemf7f11f1iter.Name)
+								f5elemf7f11f1elem.Name = f5elemf7f11f1iter.Name
 							}
-							f5elemf7f11f1 = append(f5elemf7f11f1, f5elemf7f11f1elem)
+							f5elemf7f11f1 = append(f5elemf7f11f1, *f5elemf7f11f1elem)
 						}
-						f5elemf7f11.SetExcludedRules(f5elemf7f11f1)
+						f5elemf7f11.ExcludedRules = f5elemf7f11f1
 					}
 					if f5iter.Statement.RuleGroupReferenceStatement.RuleActionOverrides != nil {
-						f5elemf7f11f2 := []*svcsdk.RuleActionOverride{}
+						f5elemf7f11f2 := []svcsdktypes.RuleActionOverride{}
 						for _, f5elemf7f11f2iter := range f5iter.Statement.RuleGroupReferenceStatement.RuleActionOverrides {
-							f5elemf7f11f2elem := &svcsdk.RuleActionOverride{}
+							f5elemf7f11f2elem := &svcsdktypes.RuleActionOverride{}
 							if f5elemf7f11f2iter.ActionToUse != nil {
-								f5elemf7f11f2elemf0 := &svcsdk.RuleAction{}
+								f5elemf7f11f2elemf0 := &svcsdktypes.RuleAction{}
 								if f5elemf7f11f2iter.ActionToUse.Allow != nil {
-									f5elemf7f11f2elemf0f0 := &svcsdk.AllowAction{}
+									f5elemf7f11f2elemf0f0 := &svcsdktypes.AllowAction{}
 									if f5elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling != nil {
-										f5elemf7f11f2elemf0f0f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f11f2elemf0f0f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f11f2elemf0f0f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f11f2elemf0f0f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f11f2elemf0f0f0f0iter := range f5elemf7f11f2iter.ActionToUse.Allow.CustomRequestHandling.InsertHeaders {
-												f5elemf7f11f2elemf0f0f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f11f2elemf0f0f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f11f2elemf0f0f0f0iter.Name != nil {
-													f5elemf7f11f2elemf0f0f0f0elem.SetName(*f5elemf7f11f2elemf0f0f0f0iter.Name)
+													f5elemf7f11f2elemf0f0f0f0elem.Name = f5elemf7f11f2elemf0f0f0f0iter.Name
 												}
 												if f5elemf7f11f2elemf0f0f0f0iter.Value != nil {
-													f5elemf7f11f2elemf0f0f0f0elem.SetValue(*f5elemf7f11f2elemf0f0f0f0iter.Value)
+													f5elemf7f11f2elemf0f0f0f0elem.Value = f5elemf7f11f2elemf0f0f0f0iter.Value
 												}
-												f5elemf7f11f2elemf0f0f0f0 = append(f5elemf7f11f2elemf0f0f0f0, f5elemf7f11f2elemf0f0f0f0elem)
+												f5elemf7f11f2elemf0f0f0f0 = append(f5elemf7f11f2elemf0f0f0f0, *f5elemf7f11f2elemf0f0f0f0elem)
 											}
-											f5elemf7f11f2elemf0f0f0.SetInsertHeaders(f5elemf7f11f2elemf0f0f0f0)
+											f5elemf7f11f2elemf0f0f0.InsertHeaders = f5elemf7f11f2elemf0f0f0f0
 										}
-										f5elemf7f11f2elemf0f0.SetCustomRequestHandling(f5elemf7f11f2elemf0f0f0)
+										f5elemf7f11f2elemf0f0.CustomRequestHandling = f5elemf7f11f2elemf0f0f0
 									}
-									f5elemf7f11f2elemf0.SetAllow(f5elemf7f11f2elemf0f0)
+									f5elemf7f11f2elemf0.Allow = f5elemf7f11f2elemf0f0
 								}
 								if f5elemf7f11f2iter.ActionToUse.Block != nil {
-									f5elemf7f11f2elemf0f1 := &svcsdk.BlockAction{}
+									f5elemf7f11f2elemf0f1 := &svcsdktypes.BlockAction{}
 									if f5elemf7f11f2iter.ActionToUse.Block.CustomResponse != nil {
-										f5elemf7f11f2elemf0f1f0 := &svcsdk.CustomResponse{}
+										f5elemf7f11f2elemf0f1f0 := &svcsdktypes.CustomResponse{}
 										if f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey != nil {
-											f5elemf7f11f2elemf0f1f0.SetCustomResponseBodyKey(*f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey)
+											f5elemf7f11f2elemf0f1f0.CustomResponseBodyKey = f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.CustomResponseBodyKey
 										}
 										if f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode != nil {
-											f5elemf7f11f2elemf0f1f0.SetResponseCode(*f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode)
+											responseCodeCopy0 := *f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseCode
+											if responseCodeCopy0 > math.MaxInt32 || responseCodeCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ResponseCode is of type int32")
+											}
+											responseCodeCopy := int32(responseCodeCopy0)
+											f5elemf7f11f2elemf0f1f0.ResponseCode = &responseCodeCopy
 										}
 										if f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseHeaders != nil {
-											f5elemf7f11f2elemf0f1f0f2 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f11f2elemf0f1f0f2 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f11f2elemf0f1f0f2iter := range f5elemf7f11f2iter.ActionToUse.Block.CustomResponse.ResponseHeaders {
-												f5elemf7f11f2elemf0f1f0f2elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f11f2elemf0f1f0f2elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f11f2elemf0f1f0f2iter.Name != nil {
-													f5elemf7f11f2elemf0f1f0f2elem.SetName(*f5elemf7f11f2elemf0f1f0f2iter.Name)
+													f5elemf7f11f2elemf0f1f0f2elem.Name = f5elemf7f11f2elemf0f1f0f2iter.Name
 												}
 												if f5elemf7f11f2elemf0f1f0f2iter.Value != nil {
-													f5elemf7f11f2elemf0f1f0f2elem.SetValue(*f5elemf7f11f2elemf0f1f0f2iter.Value)
+													f5elemf7f11f2elemf0f1f0f2elem.Value = f5elemf7f11f2elemf0f1f0f2iter.Value
 												}
-												f5elemf7f11f2elemf0f1f0f2 = append(f5elemf7f11f2elemf0f1f0f2, f5elemf7f11f2elemf0f1f0f2elem)
+												f5elemf7f11f2elemf0f1f0f2 = append(f5elemf7f11f2elemf0f1f0f2, *f5elemf7f11f2elemf0f1f0f2elem)
 											}
-											f5elemf7f11f2elemf0f1f0.SetResponseHeaders(f5elemf7f11f2elemf0f1f0f2)
+											f5elemf7f11f2elemf0f1f0.ResponseHeaders = f5elemf7f11f2elemf0f1f0f2
 										}
-										f5elemf7f11f2elemf0f1.SetCustomResponse(f5elemf7f11f2elemf0f1f0)
+										f5elemf7f11f2elemf0f1.CustomResponse = f5elemf7f11f2elemf0f1f0
 									}
-									f5elemf7f11f2elemf0.SetBlock(f5elemf7f11f2elemf0f1)
+									f5elemf7f11f2elemf0.Block = f5elemf7f11f2elemf0f1
 								}
 								if f5elemf7f11f2iter.ActionToUse.Captcha != nil {
-									f5elemf7f11f2elemf0f2 := &svcsdk.CaptchaAction{}
+									f5elemf7f11f2elemf0f2 := &svcsdktypes.CaptchaAction{}
 									if f5elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling != nil {
-										f5elemf7f11f2elemf0f2f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f11f2elemf0f2f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f11f2elemf0f2f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f11f2elemf0f2f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f11f2elemf0f2f0f0iter := range f5elemf7f11f2iter.ActionToUse.Captcha.CustomRequestHandling.InsertHeaders {
-												f5elemf7f11f2elemf0f2f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f11f2elemf0f2f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f11f2elemf0f2f0f0iter.Name != nil {
-													f5elemf7f11f2elemf0f2f0f0elem.SetName(*f5elemf7f11f2elemf0f2f0f0iter.Name)
+													f5elemf7f11f2elemf0f2f0f0elem.Name = f5elemf7f11f2elemf0f2f0f0iter.Name
 												}
 												if f5elemf7f11f2elemf0f2f0f0iter.Value != nil {
-													f5elemf7f11f2elemf0f2f0f0elem.SetValue(*f5elemf7f11f2elemf0f2f0f0iter.Value)
+													f5elemf7f11f2elemf0f2f0f0elem.Value = f5elemf7f11f2elemf0f2f0f0iter.Value
 												}
-												f5elemf7f11f2elemf0f2f0f0 = append(f5elemf7f11f2elemf0f2f0f0, f5elemf7f11f2elemf0f2f0f0elem)
+												f5elemf7f11f2elemf0f2f0f0 = append(f5elemf7f11f2elemf0f2f0f0, *f5elemf7f11f2elemf0f2f0f0elem)
 											}
-											f5elemf7f11f2elemf0f2f0.SetInsertHeaders(f5elemf7f11f2elemf0f2f0f0)
+											f5elemf7f11f2elemf0f2f0.InsertHeaders = f5elemf7f11f2elemf0f2f0f0
 										}
-										f5elemf7f11f2elemf0f2.SetCustomRequestHandling(f5elemf7f11f2elemf0f2f0)
+										f5elemf7f11f2elemf0f2.CustomRequestHandling = f5elemf7f11f2elemf0f2f0
 									}
-									f5elemf7f11f2elemf0.SetCaptcha(f5elemf7f11f2elemf0f2)
+									f5elemf7f11f2elemf0.Captcha = f5elemf7f11f2elemf0f2
 								}
 								if f5elemf7f11f2iter.ActionToUse.Challenge != nil {
-									f5elemf7f11f2elemf0f3 := &svcsdk.ChallengeAction{}
+									f5elemf7f11f2elemf0f3 := &svcsdktypes.ChallengeAction{}
 									if f5elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling != nil {
-										f5elemf7f11f2elemf0f3f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f11f2elemf0f3f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f11f2elemf0f3f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f11f2elemf0f3f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f11f2elemf0f3f0f0iter := range f5elemf7f11f2iter.ActionToUse.Challenge.CustomRequestHandling.InsertHeaders {
-												f5elemf7f11f2elemf0f3f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f11f2elemf0f3f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f11f2elemf0f3f0f0iter.Name != nil {
-													f5elemf7f11f2elemf0f3f0f0elem.SetName(*f5elemf7f11f2elemf0f3f0f0iter.Name)
+													f5elemf7f11f2elemf0f3f0f0elem.Name = f5elemf7f11f2elemf0f3f0f0iter.Name
 												}
 												if f5elemf7f11f2elemf0f3f0f0iter.Value != nil {
-													f5elemf7f11f2elemf0f3f0f0elem.SetValue(*f5elemf7f11f2elemf0f3f0f0iter.Value)
+													f5elemf7f11f2elemf0f3f0f0elem.Value = f5elemf7f11f2elemf0f3f0f0iter.Value
 												}
-												f5elemf7f11f2elemf0f3f0f0 = append(f5elemf7f11f2elemf0f3f0f0, f5elemf7f11f2elemf0f3f0f0elem)
+												f5elemf7f11f2elemf0f3f0f0 = append(f5elemf7f11f2elemf0f3f0f0, *f5elemf7f11f2elemf0f3f0f0elem)
 											}
-											f5elemf7f11f2elemf0f3f0.SetInsertHeaders(f5elemf7f11f2elemf0f3f0f0)
+											f5elemf7f11f2elemf0f3f0.InsertHeaders = f5elemf7f11f2elemf0f3f0f0
 										}
-										f5elemf7f11f2elemf0f3.SetCustomRequestHandling(f5elemf7f11f2elemf0f3f0)
+										f5elemf7f11f2elemf0f3.CustomRequestHandling = f5elemf7f11f2elemf0f3f0
 									}
-									f5elemf7f11f2elemf0.SetChallenge(f5elemf7f11f2elemf0f3)
+									f5elemf7f11f2elemf0.Challenge = f5elemf7f11f2elemf0f3
 								}
 								if f5elemf7f11f2iter.ActionToUse.Count != nil {
-									f5elemf7f11f2elemf0f4 := &svcsdk.CountAction{}
+									f5elemf7f11f2elemf0f4 := &svcsdktypes.CountAction{}
 									if f5elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling != nil {
-										f5elemf7f11f2elemf0f4f0 := &svcsdk.CustomRequestHandling{}
+										f5elemf7f11f2elemf0f4f0 := &svcsdktypes.CustomRequestHandling{}
 										if f5elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders != nil {
-											f5elemf7f11f2elemf0f4f0f0 := []*svcsdk.CustomHTTPHeader{}
+											f5elemf7f11f2elemf0f4f0f0 := []svcsdktypes.CustomHTTPHeader{}
 											for _, f5elemf7f11f2elemf0f4f0f0iter := range f5elemf7f11f2iter.ActionToUse.Count.CustomRequestHandling.InsertHeaders {
-												f5elemf7f11f2elemf0f4f0f0elem := &svcsdk.CustomHTTPHeader{}
+												f5elemf7f11f2elemf0f4f0f0elem := &svcsdktypes.CustomHTTPHeader{}
 												if f5elemf7f11f2elemf0f4f0f0iter.Name != nil {
-													f5elemf7f11f2elemf0f4f0f0elem.SetName(*f5elemf7f11f2elemf0f4f0f0iter.Name)
+													f5elemf7f11f2elemf0f4f0f0elem.Name = f5elemf7f11f2elemf0f4f0f0iter.Name
 												}
 												if f5elemf7f11f2elemf0f4f0f0iter.Value != nil {
-													f5elemf7f11f2elemf0f4f0f0elem.SetValue(*f5elemf7f11f2elemf0f4f0f0iter.Value)
+													f5elemf7f11f2elemf0f4f0f0elem.Value = f5elemf7f11f2elemf0f4f0f0iter.Value
 												}
-												f5elemf7f11f2elemf0f4f0f0 = append(f5elemf7f11f2elemf0f4f0f0, f5elemf7f11f2elemf0f4f0f0elem)
+												f5elemf7f11f2elemf0f4f0f0 = append(f5elemf7f11f2elemf0f4f0f0, *f5elemf7f11f2elemf0f4f0f0elem)
 											}
-											f5elemf7f11f2elemf0f4f0.SetInsertHeaders(f5elemf7f11f2elemf0f4f0f0)
+											f5elemf7f11f2elemf0f4f0.InsertHeaders = f5elemf7f11f2elemf0f4f0f0
 										}
-										f5elemf7f11f2elemf0f4.SetCustomRequestHandling(f5elemf7f11f2elemf0f4f0)
+										f5elemf7f11f2elemf0f4.CustomRequestHandling = f5elemf7f11f2elemf0f4f0
 									}
-									f5elemf7f11f2elemf0.SetCount(f5elemf7f11f2elemf0f4)
+									f5elemf7f11f2elemf0.Count = f5elemf7f11f2elemf0f4
 								}
-								f5elemf7f11f2elem.SetActionToUse(f5elemf7f11f2elemf0)
+								f5elemf7f11f2elem.ActionToUse = f5elemf7f11f2elemf0
 							}
 							if f5elemf7f11f2iter.Name != nil {
-								f5elemf7f11f2elem.SetName(*f5elemf7f11f2iter.Name)
+								f5elemf7f11f2elem.Name = f5elemf7f11f2iter.Name
 							}
-							f5elemf7f11f2 = append(f5elemf7f11f2, f5elemf7f11f2elem)
+							f5elemf7f11f2 = append(f5elemf7f11f2, *f5elemf7f11f2elem)
 						}
-						f5elemf7f11.SetRuleActionOverrides(f5elemf7f11f2)
+						f5elemf7f11.RuleActionOverrides = f5elemf7f11f2
 					}
-					f5elemf7.SetRuleGroupReferenceStatement(f5elemf7f11)
+					f5elemf7.RuleGroupReferenceStatement = f5elemf7f11
 				}
 				if f5iter.Statement.SizeConstraintStatement != nil {
-					f5elemf7f12 := &svcsdk.SizeConstraintStatement{}
+					f5elemf7f12 := &svcsdktypes.SizeConstraintStatement{}
 					if f5iter.Statement.SizeConstraintStatement.ComparisonOperator != nil {
-						f5elemf7f12.SetComparisonOperator(*f5iter.Statement.SizeConstraintStatement.ComparisonOperator)
+						f5elemf7f12.ComparisonOperator = svcsdktypes.ComparisonOperator(*f5iter.Statement.SizeConstraintStatement.ComparisonOperator)
 					}
 					if f5iter.Statement.SizeConstraintStatement.FieldToMatch != nil {
-						f5elemf7f12f1 := &svcsdk.FieldToMatch{}
+						f5elemf7f12f1 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f12f1f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f12f1.SetAllQueryArguments(f5elemf7f12f1f0)
+							f5elemf7f12f1f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f12f1.AllQueryArguments = f5elemf7f12f1f0
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Body != nil {
-							f5elemf7f12f1f1 := &svcsdk.Body{}
+							f5elemf7f12f1f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f12f1f1.SetOversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f12f1f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f12f1.SetBody(f5elemf7f12f1f1)
+							f5elemf7f12f1.Body = f5elemf7f12f1f1
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f12f1f2 := &svcsdk.Cookies{}
+							f5elemf7f12f1f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f12f1f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f12f1f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f12f1f2f0f0 := &svcsdk.All{}
-									f5elemf7f12f1f2f0.SetAll(f5elemf7f12f1f2f0f0)
+									f5elemf7f12f1f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f12f1f2f0.All = f5elemf7f12f1f2f0f0
 								}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f12f1f2f0f1 := []*string{}
-									for _, f5elemf7f12f1f2f0f1iter := range f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f12f1f2f0f1elem string
-										f5elemf7f12f1f2f0f1elem = *f5elemf7f12f1f2f0f1iter
-										f5elemf7f12f1f2f0f1 = append(f5elemf7f12f1f2f0f1, &f5elemf7f12f1f2f0f1elem)
-									}
-									f5elemf7f12f1f2f0.SetExcludedCookies(f5elemf7f12f1f2f0f1)
+									f5elemf7f12f1f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f12f1f2f0f2 := []*string{}
-									for _, f5elemf7f12f1f2f0f2iter := range f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f12f1f2f0f2elem string
-										f5elemf7f12f1f2f0f2elem = *f5elemf7f12f1f2f0f2iter
-										f5elemf7f12f1f2f0f2 = append(f5elemf7f12f1f2f0f2, &f5elemf7f12f1f2f0f2elem)
-									}
-									f5elemf7f12f1f2f0.SetIncludedCookies(f5elemf7f12f1f2f0f2)
+									f5elemf7f12f1f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f12f1f2.SetMatchPattern(f5elemf7f12f1f2f0)
+								f5elemf7f12f1f2.MatchPattern = f5elemf7f12f1f2f0
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f12f1f2.SetMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f12f1f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f12f1f2.SetOversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f12f1f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f12f1.SetCookies(f5elemf7f12f1f2)
+							f5elemf7f12f1.Cookies = f5elemf7f12f1f2
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f12f1f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f12f1f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f12f1f3.SetOversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f12f1f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f12f1.SetHeaderOrder(f5elemf7f12f1f3)
+							f5elemf7f12f1.HeaderOrder = f5elemf7f12f1f3
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers != nil {
-							f5elemf7f12f1f4 := &svcsdk.Headers{}
+							f5elemf7f12f1f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f12f1f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f12f1f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f12f1f4f0f0 := &svcsdk.All{}
-									f5elemf7f12f1f4f0.SetAll(f5elemf7f12f1f4f0f0)
+									f5elemf7f12f1f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f12f1f4f0.All = f5elemf7f12f1f4f0f0
 								}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f12f1f4f0f1 := []*string{}
-									for _, f5elemf7f12f1f4f0f1iter := range f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f12f1f4f0f1elem string
-										f5elemf7f12f1f4f0f1elem = *f5elemf7f12f1f4f0f1iter
-										f5elemf7f12f1f4f0f1 = append(f5elemf7f12f1f4f0f1, &f5elemf7f12f1f4f0f1elem)
-									}
-									f5elemf7f12f1f4f0.SetExcludedHeaders(f5elemf7f12f1f4f0f1)
+									f5elemf7f12f1f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f12f1f4f0f2 := []*string{}
-									for _, f5elemf7f12f1f4f0f2iter := range f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f12f1f4f0f2elem string
-										f5elemf7f12f1f4f0f2elem = *f5elemf7f12f1f4f0f2iter
-										f5elemf7f12f1f4f0f2 = append(f5elemf7f12f1f4f0f2, &f5elemf7f12f1f4f0f2elem)
-									}
-									f5elemf7f12f1f4f0.SetIncludedHeaders(f5elemf7f12f1f4f0f2)
+									f5elemf7f12f1f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f12f1f4.SetMatchPattern(f5elemf7f12f1f4f0)
+								f5elemf7f12f1f4.MatchPattern = f5elemf7f12f1f4f0
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f12f1f4.SetMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f12f1f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f12f1f4.SetOversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f12f1f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f12f1.SetHeaders(f5elemf7f12f1f4)
+							f5elemf7f12f1.Headers = f5elemf7f12f1f4
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f12f1f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f12f1f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f12f1f5.SetFallbackBehavior(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f12f1f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f12f1.SetJA3Fingerprint(f5elemf7f12f1f5)
+							f5elemf7f12f1.JA3Fingerprint = f5elemf7f12f1f5
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f12f1f6 := &svcsdk.JsonBody{}
+							f5elemf7f12f1f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f12f1f6.SetInvalidFallbackBehavior(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f12f1f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f12f1f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f12f1f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f12f1f6f1f0 := &svcsdk.All{}
-									f5elemf7f12f1f6f1.SetAll(f5elemf7f12f1f6f1f0)
+									f5elemf7f12f1f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f12f1f6f1.All = f5elemf7f12f1f6f1f0
 								}
 								if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f12f1f6f1f1 := []*string{}
-									for _, f5elemf7f12f1f6f1f1iter := range f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f12f1f6f1f1elem string
-										f5elemf7f12f1f6f1f1elem = *f5elemf7f12f1f6f1f1iter
-										f5elemf7f12f1f6f1f1 = append(f5elemf7f12f1f6f1f1, &f5elemf7f12f1f6f1f1elem)
-									}
-									f5elemf7f12f1f6f1.SetIncludedPaths(f5elemf7f12f1f6f1f1)
+									f5elemf7f12f1f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f12f1f6.SetMatchPattern(f5elemf7f12f1f6f1)
+								f5elemf7f12f1f6.MatchPattern = f5elemf7f12f1f6f1
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f12f1f6.SetMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f12f1f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f12f1f6.SetOversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f12f1f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f12f1.SetJsonBody(f5elemf7f12f1f6)
+							f5elemf7f12f1.JsonBody = f5elemf7f12f1f6
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.Method != nil {
-							f5elemf7f12f1f7 := &svcsdk.Method{}
-							f5elemf7f12f1.SetMethod(f5elemf7f12f1f7)
+							f5elemf7f12f1f7 := &svcsdktypes.Method{}
+							f5elemf7f12f1.Method = f5elemf7f12f1f7
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f12f1f8 := &svcsdk.QueryString{}
-							f5elemf7f12f1.SetQueryString(f5elemf7f12f1f8)
+							f5elemf7f12f1f8 := &svcsdktypes.QueryString{}
+							f5elemf7f12f1.QueryString = f5elemf7f12f1f8
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f12f1f9 := &svcsdk.SingleHeader{}
+							f5elemf7f12f1f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f12f1f9.SetName(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f12f1f9.Name = f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f12f1.SetSingleHeader(f5elemf7f12f1f9)
+							f5elemf7f12f1.SingleHeader = f5elemf7f12f1f9
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f12f1f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f12f1f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f12f1f10.SetName(*f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f12f1f10.Name = f5iter.Statement.SizeConstraintStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f12f1.SetSingleQueryArgument(f5elemf7f12f1f10)
+							f5elemf7f12f1.SingleQueryArgument = f5elemf7f12f1f10
 						}
 						if f5iter.Statement.SizeConstraintStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f12f1f11 := &svcsdk.UriPath{}
-							f5elemf7f12f1.SetUriPath(f5elemf7f12f1f11)
+							f5elemf7f12f1f11 := &svcsdktypes.UriPath{}
+							f5elemf7f12f1.UriPath = f5elemf7f12f1f11
 						}
-						f5elemf7f12.SetFieldToMatch(f5elemf7f12f1)
+						f5elemf7f12.FieldToMatch = f5elemf7f12f1
 					}
 					if f5iter.Statement.SizeConstraintStatement.Size != nil {
-						f5elemf7f12.SetSize(*f5iter.Statement.SizeConstraintStatement.Size)
+						f5elemf7f12.Size = *f5iter.Statement.SizeConstraintStatement.Size
 					}
 					if f5iter.Statement.SizeConstraintStatement.TextTransformations != nil {
-						f5elemf7f12f3 := []*svcsdk.TextTransformation{}
+						f5elemf7f12f3 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f12f3iter := range f5iter.Statement.SizeConstraintStatement.TextTransformations {
-							f5elemf7f12f3elem := &svcsdk.TextTransformation{}
+							f5elemf7f12f3elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f12f3iter.Priority != nil {
-								f5elemf7f12f3elem.SetPriority(*f5elemf7f12f3iter.Priority)
+								priorityCopy0 := *f5elemf7f12f3iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f12f3elem.Priority = priorityCopy
 							}
 							if f5elemf7f12f3iter.Type != nil {
-								f5elemf7f12f3elem.SetType(*f5elemf7f12f3iter.Type)
+								f5elemf7f12f3elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f12f3iter.Type)
 							}
-							f5elemf7f12f3 = append(f5elemf7f12f3, f5elemf7f12f3elem)
+							f5elemf7f12f3 = append(f5elemf7f12f3, *f5elemf7f12f3elem)
 						}
-						f5elemf7f12.SetTextTransformations(f5elemf7f12f3)
+						f5elemf7f12.TextTransformations = f5elemf7f12f3
 					}
-					f5elemf7.SetSizeConstraintStatement(f5elemf7f12)
+					f5elemf7.SizeConstraintStatement = f5elemf7f12
 				}
 				if f5iter.Statement.SQLIMatchStatement != nil {
-					f5elemf7f13 := &svcsdk.SqliMatchStatement{}
+					f5elemf7f13 := &svcsdktypes.SqliMatchStatement{}
 					if f5iter.Statement.SQLIMatchStatement.FieldToMatch != nil {
-						f5elemf7f13f0 := &svcsdk.FieldToMatch{}
+						f5elemf7f13f0 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f13f0f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f13f0.SetAllQueryArguments(f5elemf7f13f0f0)
+							f5elemf7f13f0f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f13f0.AllQueryArguments = f5elemf7f13f0f0
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Body != nil {
-							f5elemf7f13f0f1 := &svcsdk.Body{}
+							f5elemf7f13f0f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f13f0f1.SetOversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f13f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f13f0.SetBody(f5elemf7f13f0f1)
+							f5elemf7f13f0.Body = f5elemf7f13f0f1
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f13f0f2 := &svcsdk.Cookies{}
+							f5elemf7f13f0f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f13f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f13f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f13f0f2f0f0 := &svcsdk.All{}
-									f5elemf7f13f0f2f0.SetAll(f5elemf7f13f0f2f0f0)
+									f5elemf7f13f0f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f13f0f2f0.All = f5elemf7f13f0f2f0f0
 								}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f13f0f2f0f1 := []*string{}
-									for _, f5elemf7f13f0f2f0f1iter := range f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f13f0f2f0f1elem string
-										f5elemf7f13f0f2f0f1elem = *f5elemf7f13f0f2f0f1iter
-										f5elemf7f13f0f2f0f1 = append(f5elemf7f13f0f2f0f1, &f5elemf7f13f0f2f0f1elem)
-									}
-									f5elemf7f13f0f2f0.SetExcludedCookies(f5elemf7f13f0f2f0f1)
+									f5elemf7f13f0f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f13f0f2f0f2 := []*string{}
-									for _, f5elemf7f13f0f2f0f2iter := range f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f13f0f2f0f2elem string
-										f5elemf7f13f0f2f0f2elem = *f5elemf7f13f0f2f0f2iter
-										f5elemf7f13f0f2f0f2 = append(f5elemf7f13f0f2f0f2, &f5elemf7f13f0f2f0f2elem)
-									}
-									f5elemf7f13f0f2f0.SetIncludedCookies(f5elemf7f13f0f2f0f2)
+									f5elemf7f13f0f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f13f0f2.SetMatchPattern(f5elemf7f13f0f2f0)
+								f5elemf7f13f0f2.MatchPattern = f5elemf7f13f0f2f0
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f13f0f2.SetMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f13f0f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f13f0f2.SetOversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f13f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f13f0.SetCookies(f5elemf7f13f0f2)
+							f5elemf7f13f0.Cookies = f5elemf7f13f0f2
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f13f0f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f13f0f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f13f0f3.SetOversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f13f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f13f0.SetHeaderOrder(f5elemf7f13f0f3)
+							f5elemf7f13f0.HeaderOrder = f5elemf7f13f0f3
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers != nil {
-							f5elemf7f13f0f4 := &svcsdk.Headers{}
+							f5elemf7f13f0f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f13f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f13f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f13f0f4f0f0 := &svcsdk.All{}
-									f5elemf7f13f0f4f0.SetAll(f5elemf7f13f0f4f0f0)
+									f5elemf7f13f0f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f13f0f4f0.All = f5elemf7f13f0f4f0f0
 								}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f13f0f4f0f1 := []*string{}
-									for _, f5elemf7f13f0f4f0f1iter := range f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f13f0f4f0f1elem string
-										f5elemf7f13f0f4f0f1elem = *f5elemf7f13f0f4f0f1iter
-										f5elemf7f13f0f4f0f1 = append(f5elemf7f13f0f4f0f1, &f5elemf7f13f0f4f0f1elem)
-									}
-									f5elemf7f13f0f4f0.SetExcludedHeaders(f5elemf7f13f0f4f0f1)
+									f5elemf7f13f0f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f13f0f4f0f2 := []*string{}
-									for _, f5elemf7f13f0f4f0f2iter := range f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f13f0f4f0f2elem string
-										f5elemf7f13f0f4f0f2elem = *f5elemf7f13f0f4f0f2iter
-										f5elemf7f13f0f4f0f2 = append(f5elemf7f13f0f4f0f2, &f5elemf7f13f0f4f0f2elem)
-									}
-									f5elemf7f13f0f4f0.SetIncludedHeaders(f5elemf7f13f0f4f0f2)
+									f5elemf7f13f0f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f13f0f4.SetMatchPattern(f5elemf7f13f0f4f0)
+								f5elemf7f13f0f4.MatchPattern = f5elemf7f13f0f4f0
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f13f0f4.SetMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f13f0f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f13f0f4.SetOversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f13f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f13f0.SetHeaders(f5elemf7f13f0f4)
+							f5elemf7f13f0.Headers = f5elemf7f13f0f4
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f13f0f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f13f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f13f0f5.SetFallbackBehavior(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f13f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f13f0.SetJA3Fingerprint(f5elemf7f13f0f5)
+							f5elemf7f13f0.JA3Fingerprint = f5elemf7f13f0f5
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f13f0f6 := &svcsdk.JsonBody{}
+							f5elemf7f13f0f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f13f0f6.SetInvalidFallbackBehavior(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f13f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f13f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f13f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f13f0f6f1f0 := &svcsdk.All{}
-									f5elemf7f13f0f6f1.SetAll(f5elemf7f13f0f6f1f0)
+									f5elemf7f13f0f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f13f0f6f1.All = f5elemf7f13f0f6f1f0
 								}
 								if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f13f0f6f1f1 := []*string{}
-									for _, f5elemf7f13f0f6f1f1iter := range f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f13f0f6f1f1elem string
-										f5elemf7f13f0f6f1f1elem = *f5elemf7f13f0f6f1f1iter
-										f5elemf7f13f0f6f1f1 = append(f5elemf7f13f0f6f1f1, &f5elemf7f13f0f6f1f1elem)
-									}
-									f5elemf7f13f0f6f1.SetIncludedPaths(f5elemf7f13f0f6f1f1)
+									f5elemf7f13f0f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f13f0f6.SetMatchPattern(f5elemf7f13f0f6f1)
+								f5elemf7f13f0f6.MatchPattern = f5elemf7f13f0f6f1
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f13f0f6.SetMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f13f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f13f0f6.SetOversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f13f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f13f0.SetJsonBody(f5elemf7f13f0f6)
+							f5elemf7f13f0.JsonBody = f5elemf7f13f0f6
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.Method != nil {
-							f5elemf7f13f0f7 := &svcsdk.Method{}
-							f5elemf7f13f0.SetMethod(f5elemf7f13f0f7)
+							f5elemf7f13f0f7 := &svcsdktypes.Method{}
+							f5elemf7f13f0.Method = f5elemf7f13f0f7
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f13f0f8 := &svcsdk.QueryString{}
-							f5elemf7f13f0.SetQueryString(f5elemf7f13f0f8)
+							f5elemf7f13f0f8 := &svcsdktypes.QueryString{}
+							f5elemf7f13f0.QueryString = f5elemf7f13f0f8
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f13f0f9 := &svcsdk.SingleHeader{}
+							f5elemf7f13f0f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f13f0f9.SetName(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f13f0f9.Name = f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f13f0.SetSingleHeader(f5elemf7f13f0f9)
+							f5elemf7f13f0.SingleHeader = f5elemf7f13f0f9
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f13f0f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f13f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f13f0f10.SetName(*f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f13f0f10.Name = f5iter.Statement.SQLIMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f13f0.SetSingleQueryArgument(f5elemf7f13f0f10)
+							f5elemf7f13f0.SingleQueryArgument = f5elemf7f13f0f10
 						}
 						if f5iter.Statement.SQLIMatchStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f13f0f11 := &svcsdk.UriPath{}
-							f5elemf7f13f0.SetUriPath(f5elemf7f13f0f11)
+							f5elemf7f13f0f11 := &svcsdktypes.UriPath{}
+							f5elemf7f13f0.UriPath = f5elemf7f13f0f11
 						}
-						f5elemf7f13.SetFieldToMatch(f5elemf7f13f0)
+						f5elemf7f13.FieldToMatch = f5elemf7f13f0
 					}
 					if f5iter.Statement.SQLIMatchStatement.SensitivityLevel != nil {
-						f5elemf7f13.SetSensitivityLevel(*f5iter.Statement.SQLIMatchStatement.SensitivityLevel)
+						f5elemf7f13.SensitivityLevel = svcsdktypes.SensitivityLevel(*f5iter.Statement.SQLIMatchStatement.SensitivityLevel)
 					}
 					if f5iter.Statement.SQLIMatchStatement.TextTransformations != nil {
-						f5elemf7f13f2 := []*svcsdk.TextTransformation{}
+						f5elemf7f13f2 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f13f2iter := range f5iter.Statement.SQLIMatchStatement.TextTransformations {
-							f5elemf7f13f2elem := &svcsdk.TextTransformation{}
+							f5elemf7f13f2elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f13f2iter.Priority != nil {
-								f5elemf7f13f2elem.SetPriority(*f5elemf7f13f2iter.Priority)
+								priorityCopy0 := *f5elemf7f13f2iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f13f2elem.Priority = priorityCopy
 							}
 							if f5elemf7f13f2iter.Type != nil {
-								f5elemf7f13f2elem.SetType(*f5elemf7f13f2iter.Type)
+								f5elemf7f13f2elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f13f2iter.Type)
 							}
-							f5elemf7f13f2 = append(f5elemf7f13f2, f5elemf7f13f2elem)
+							f5elemf7f13f2 = append(f5elemf7f13f2, *f5elemf7f13f2elem)
 						}
-						f5elemf7f13.SetTextTransformations(f5elemf7f13f2)
+						f5elemf7f13.TextTransformations = f5elemf7f13f2
 					}
-					f5elemf7.SetSqliMatchStatement(f5elemf7f13)
+					f5elemf7.SqliMatchStatement = f5elemf7f13
 				}
 				if f5iter.Statement.XSSMatchStatement != nil {
-					f5elemf7f14 := &svcsdk.XssMatchStatement{}
+					f5elemf7f14 := &svcsdktypes.XssMatchStatement{}
 					if f5iter.Statement.XSSMatchStatement.FieldToMatch != nil {
-						f5elemf7f14f0 := &svcsdk.FieldToMatch{}
+						f5elemf7f14f0 := &svcsdktypes.FieldToMatch{}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.AllQueryArguments != nil {
-							f5elemf7f14f0f0 := &svcsdk.AllQueryArguments{}
-							f5elemf7f14f0.SetAllQueryArguments(f5elemf7f14f0f0)
+							f5elemf7f14f0f0 := &svcsdktypes.AllQueryArguments{}
+							f5elemf7f14f0.AllQueryArguments = f5elemf7f14f0f0
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.Body != nil {
-							f5elemf7f14f0f1 := &svcsdk.Body{}
+							f5elemf7f14f0f1 := &svcsdktypes.Body{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling != nil {
-								f5elemf7f14f0f1.SetOversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling)
+								f5elemf7f14f0f1.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Body.OversizeHandling)
 							}
-							f5elemf7f14f0.SetBody(f5elemf7f14f0f1)
+							f5elemf7f14f0.Body = f5elemf7f14f0f1
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies != nil {
-							f5elemf7f14f0f2 := &svcsdk.Cookies{}
+							f5elemf7f14f0f2 := &svcsdktypes.Cookies{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern != nil {
-								f5elemf7f14f0f2f0 := &svcsdk.CookieMatchPattern{}
+								f5elemf7f14f0f2f0 := &svcsdktypes.CookieMatchPattern{}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.All != nil {
-									f5elemf7f14f0f2f0f0 := &svcsdk.All{}
-									f5elemf7f14f0f2f0.SetAll(f5elemf7f14f0f2f0f0)
+									f5elemf7f14f0f2f0f0 := &svcsdktypes.All{}
+									f5elemf7f14f0f2f0.All = f5elemf7f14f0f2f0f0
 								}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies != nil {
-									f5elemf7f14f0f2f0f1 := []*string{}
-									for _, f5elemf7f14f0f2f0f1iter := range f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies {
-										var f5elemf7f14f0f2f0f1elem string
-										f5elemf7f14f0f2f0f1elem = *f5elemf7f14f0f2f0f1iter
-										f5elemf7f14f0f2f0f1 = append(f5elemf7f14f0f2f0f1, &f5elemf7f14f0f2f0f1elem)
-									}
-									f5elemf7f14f0f2f0.SetExcludedCookies(f5elemf7f14f0f2f0f1)
+									f5elemf7f14f0f2f0.ExcludedCookies = aws.ToStringSlice(f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.ExcludedCookies)
 								}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies != nil {
-									f5elemf7f14f0f2f0f2 := []*string{}
-									for _, f5elemf7f14f0f2f0f2iter := range f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies {
-										var f5elemf7f14f0f2f0f2elem string
-										f5elemf7f14f0f2f0f2elem = *f5elemf7f14f0f2f0f2iter
-										f5elemf7f14f0f2f0f2 = append(f5elemf7f14f0f2f0f2, &f5elemf7f14f0f2f0f2elem)
-									}
-									f5elemf7f14f0f2f0.SetIncludedCookies(f5elemf7f14f0f2f0f2)
+									f5elemf7f14f0f2f0.IncludedCookies = aws.ToStringSlice(f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchPattern.IncludedCookies)
 								}
-								f5elemf7f14f0f2.SetMatchPattern(f5elemf7f14f0f2f0)
+								f5elemf7f14f0f2.MatchPattern = f5elemf7f14f0f2f0
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope != nil {
-								f5elemf7f14f0f2.SetMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope)
+								f5elemf7f14f0f2.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.MatchScope)
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling != nil {
-								f5elemf7f14f0f2.SetOversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling)
+								f5elemf7f14f0f2.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Cookies.OversizeHandling)
 							}
-							f5elemf7f14f0.SetCookies(f5elemf7f14f0f2)
+							f5elemf7f14f0.Cookies = f5elemf7f14f0f2
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder != nil {
-							f5elemf7f14f0f3 := &svcsdk.HeaderOrder{}
+							f5elemf7f14f0f3 := &svcsdktypes.HeaderOrder{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling != nil {
-								f5elemf7f14f0f3.SetOversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
+								f5elemf7f14f0f3.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.HeaderOrder.OversizeHandling)
 							}
-							f5elemf7f14f0.SetHeaderOrder(f5elemf7f14f0f3)
+							f5elemf7f14f0.HeaderOrder = f5elemf7f14f0f3
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers != nil {
-							f5elemf7f14f0f4 := &svcsdk.Headers{}
+							f5elemf7f14f0f4 := &svcsdktypes.Headers{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern != nil {
-								f5elemf7f14f0f4f0 := &svcsdk.HeaderMatchPattern{}
+								f5elemf7f14f0f4f0 := &svcsdktypes.HeaderMatchPattern{}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.All != nil {
-									f5elemf7f14f0f4f0f0 := &svcsdk.All{}
-									f5elemf7f14f0f4f0.SetAll(f5elemf7f14f0f4f0f0)
+									f5elemf7f14f0f4f0f0 := &svcsdktypes.All{}
+									f5elemf7f14f0f4f0.All = f5elemf7f14f0f4f0f0
 								}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders != nil {
-									f5elemf7f14f0f4f0f1 := []*string{}
-									for _, f5elemf7f14f0f4f0f1iter := range f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders {
-										var f5elemf7f14f0f4f0f1elem string
-										f5elemf7f14f0f4f0f1elem = *f5elemf7f14f0f4f0f1iter
-										f5elemf7f14f0f4f0f1 = append(f5elemf7f14f0f4f0f1, &f5elemf7f14f0f4f0f1elem)
-									}
-									f5elemf7f14f0f4f0.SetExcludedHeaders(f5elemf7f14f0f4f0f1)
+									f5elemf7f14f0f4f0.ExcludedHeaders = aws.ToStringSlice(f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.ExcludedHeaders)
 								}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders != nil {
-									f5elemf7f14f0f4f0f2 := []*string{}
-									for _, f5elemf7f14f0f4f0f2iter := range f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders {
-										var f5elemf7f14f0f4f0f2elem string
-										f5elemf7f14f0f4f0f2elem = *f5elemf7f14f0f4f0f2iter
-										f5elemf7f14f0f4f0f2 = append(f5elemf7f14f0f4f0f2, &f5elemf7f14f0f4f0f2elem)
-									}
-									f5elemf7f14f0f4f0.SetIncludedHeaders(f5elemf7f14f0f4f0f2)
+									f5elemf7f14f0f4f0.IncludedHeaders = aws.ToStringSlice(f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchPattern.IncludedHeaders)
 								}
-								f5elemf7f14f0f4.SetMatchPattern(f5elemf7f14f0f4f0)
+								f5elemf7f14f0f4.MatchPattern = f5elemf7f14f0f4f0
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope != nil {
-								f5elemf7f14f0f4.SetMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope)
+								f5elemf7f14f0f4.MatchScope = svcsdktypes.MapMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.MatchScope)
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling != nil {
-								f5elemf7f14f0f4.SetOversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling)
+								f5elemf7f14f0f4.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.Headers.OversizeHandling)
 							}
-							f5elemf7f14f0.SetHeaders(f5elemf7f14f0f4)
+							f5elemf7f14f0.Headers = f5elemf7f14f0f4
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint != nil {
-							f5elemf7f14f0f5 := &svcsdk.JA3Fingerprint{}
+							f5elemf7f14f0f5 := &svcsdktypes.JA3Fingerprint{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior != nil {
-								f5elemf7f14f0f5.SetFallbackBehavior(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
+								f5elemf7f14f0f5.FallbackBehavior = svcsdktypes.FallbackBehavior(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JA3Fingerprint.FallbackBehavior)
 							}
-							f5elemf7f14f0.SetJA3Fingerprint(f5elemf7f14f0f5)
+							f5elemf7f14f0.JA3Fingerprint = f5elemf7f14f0f5
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody != nil {
-							f5elemf7f14f0f6 := &svcsdk.JsonBody{}
+							f5elemf7f14f0f6 := &svcsdktypes.JsonBody{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior != nil {
-								f5elemf7f14f0f6.SetInvalidFallbackBehavior(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
+								f5elemf7f14f0f6.InvalidFallbackBehavior = svcsdktypes.BodyParsingFallbackBehavior(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.InvalidFallbackBehavior)
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern != nil {
-								f5elemf7f14f0f6f1 := &svcsdk.JsonMatchPattern{}
+								f5elemf7f14f0f6f1 := &svcsdktypes.JsonMatchPattern{}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.All != nil {
-									f5elemf7f14f0f6f1f0 := &svcsdk.All{}
-									f5elemf7f14f0f6f1.SetAll(f5elemf7f14f0f6f1f0)
+									f5elemf7f14f0f6f1f0 := &svcsdktypes.All{}
+									f5elemf7f14f0f6f1.All = f5elemf7f14f0f6f1f0
 								}
 								if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths != nil {
-									f5elemf7f14f0f6f1f1 := []*string{}
-									for _, f5elemf7f14f0f6f1f1iter := range f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths {
-										var f5elemf7f14f0f6f1f1elem string
-										f5elemf7f14f0f6f1f1elem = *f5elemf7f14f0f6f1f1iter
-										f5elemf7f14f0f6f1f1 = append(f5elemf7f14f0f6f1f1, &f5elemf7f14f0f6f1f1elem)
-									}
-									f5elemf7f14f0f6f1.SetIncludedPaths(f5elemf7f14f0f6f1f1)
+									f5elemf7f14f0f6f1.IncludedPaths = aws.ToStringSlice(f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchPattern.IncludedPaths)
 								}
-								f5elemf7f14f0f6.SetMatchPattern(f5elemf7f14f0f6f1)
+								f5elemf7f14f0f6.MatchPattern = f5elemf7f14f0f6f1
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope != nil {
-								f5elemf7f14f0f6.SetMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope)
+								f5elemf7f14f0f6.MatchScope = svcsdktypes.JsonMatchScope(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.MatchScope)
 							}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling != nil {
-								f5elemf7f14f0f6.SetOversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
+								f5elemf7f14f0f6.OversizeHandling = svcsdktypes.OversizeHandling(*f5iter.Statement.XSSMatchStatement.FieldToMatch.JSONBody.OversizeHandling)
 							}
-							f5elemf7f14f0.SetJsonBody(f5elemf7f14f0f6)
+							f5elemf7f14f0.JsonBody = f5elemf7f14f0f6
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.Method != nil {
-							f5elemf7f14f0f7 := &svcsdk.Method{}
-							f5elemf7f14f0.SetMethod(f5elemf7f14f0f7)
+							f5elemf7f14f0f7 := &svcsdktypes.Method{}
+							f5elemf7f14f0.Method = f5elemf7f14f0f7
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.QueryString != nil {
-							f5elemf7f14f0f8 := &svcsdk.QueryString{}
-							f5elemf7f14f0.SetQueryString(f5elemf7f14f0f8)
+							f5elemf7f14f0f8 := &svcsdktypes.QueryString{}
+							f5elemf7f14f0.QueryString = f5elemf7f14f0f8
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader != nil {
-							f5elemf7f14f0f9 := &svcsdk.SingleHeader{}
+							f5elemf7f14f0f9 := &svcsdktypes.SingleHeader{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name != nil {
-								f5elemf7f14f0f9.SetName(*f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name)
+								f5elemf7f14f0f9.Name = f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleHeader.Name
 							}
-							f5elemf7f14f0.SetSingleHeader(f5elemf7f14f0f9)
+							f5elemf7f14f0.SingleHeader = f5elemf7f14f0f9
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument != nil {
-							f5elemf7f14f0f10 := &svcsdk.SingleQueryArgument{}
+							f5elemf7f14f0f10 := &svcsdktypes.SingleQueryArgument{}
 							if f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name != nil {
-								f5elemf7f14f0f10.SetName(*f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name)
+								f5elemf7f14f0f10.Name = f5iter.Statement.XSSMatchStatement.FieldToMatch.SingleQueryArgument.Name
 							}
-							f5elemf7f14f0.SetSingleQueryArgument(f5elemf7f14f0f10)
+							f5elemf7f14f0.SingleQueryArgument = f5elemf7f14f0f10
 						}
 						if f5iter.Statement.XSSMatchStatement.FieldToMatch.URIPath != nil {
-							f5elemf7f14f0f11 := &svcsdk.UriPath{}
-							f5elemf7f14f0.SetUriPath(f5elemf7f14f0f11)
+							f5elemf7f14f0f11 := &svcsdktypes.UriPath{}
+							f5elemf7f14f0.UriPath = f5elemf7f14f0f11
 						}
-						f5elemf7f14.SetFieldToMatch(f5elemf7f14f0)
+						f5elemf7f14.FieldToMatch = f5elemf7f14f0
 					}
 					if f5iter.Statement.XSSMatchStatement.TextTransformations != nil {
-						f5elemf7f14f1 := []*svcsdk.TextTransformation{}
+						f5elemf7f14f1 := []svcsdktypes.TextTransformation{}
 						for _, f5elemf7f14f1iter := range f5iter.Statement.XSSMatchStatement.TextTransformations {
-							f5elemf7f14f1elem := &svcsdk.TextTransformation{}
+							f5elemf7f14f1elem := &svcsdktypes.TextTransformation{}
 							if f5elemf7f14f1iter.Priority != nil {
-								f5elemf7f14f1elem.SetPriority(*f5elemf7f14f1iter.Priority)
+								priorityCopy0 := *f5elemf7f14f1iter.Priority
+								if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+									return nil, fmt.Errorf("error: field Priority is of type int32")
+								}
+								priorityCopy := int32(priorityCopy0)
+								f5elemf7f14f1elem.Priority = priorityCopy
 							}
 							if f5elemf7f14f1iter.Type != nil {
-								f5elemf7f14f1elem.SetType(*f5elemf7f14f1iter.Type)
+								f5elemf7f14f1elem.Type = svcsdktypes.TextTransformationType(*f5elemf7f14f1iter.Type)
 							}
-							f5elemf7f14f1 = append(f5elemf7f14f1, f5elemf7f14f1elem)
+							f5elemf7f14f1 = append(f5elemf7f14f1, *f5elemf7f14f1elem)
 						}
-						f5elemf7f14.SetTextTransformations(f5elemf7f14f1)
+						f5elemf7f14.TextTransformations = f5elemf7f14f1
 					}
-					f5elemf7.SetXssMatchStatement(f5elemf7f14)
+					f5elemf7.XssMatchStatement = f5elemf7f14
 				}
-				f5elem.SetStatement(f5elemf7)
+				f5elem.Statement = f5elemf7
 			}
 			if f5iter.VisibilityConfig != nil {
-				f5elemf8 := &svcsdk.VisibilityConfig{}
+				f5elemf8 := &svcsdktypes.VisibilityConfig{}
 				if f5iter.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-					f5elemf8.SetCloudWatchMetricsEnabled(*f5iter.VisibilityConfig.CloudWatchMetricsEnabled)
+					f5elemf8.CloudWatchMetricsEnabled = *f5iter.VisibilityConfig.CloudWatchMetricsEnabled
 				}
 				if f5iter.VisibilityConfig.MetricName != nil {
-					f5elemf8.SetMetricName(*f5iter.VisibilityConfig.MetricName)
+					f5elemf8.MetricName = f5iter.VisibilityConfig.MetricName
 				}
 				if f5iter.VisibilityConfig.SampledRequestsEnabled != nil {
-					f5elemf8.SetSampledRequestsEnabled(*f5iter.VisibilityConfig.SampledRequestsEnabled)
+					f5elemf8.SampledRequestsEnabled = *f5iter.VisibilityConfig.SampledRequestsEnabled
 				}
-				f5elem.SetVisibilityConfig(f5elemf8)
+				f5elem.VisibilityConfig = f5elemf8
 			}
-			f5 = append(f5, f5elem)
+			f5 = append(f5, *f5elem)
 		}
-		res.SetRules(f5)
+		res.Rules = f5
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 	if r.ko.Spec.VisibilityConfig != nil {
-		f7 := &svcsdk.VisibilityConfig{}
+		f7 := &svcsdktypes.VisibilityConfig{}
 		if r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled != nil {
-			f7.SetCloudWatchMetricsEnabled(*r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled)
+			f7.CloudWatchMetricsEnabled = *r.ko.Spec.VisibilityConfig.CloudWatchMetricsEnabled
 		}
 		if r.ko.Spec.VisibilityConfig.MetricName != nil {
-			f7.SetMetricName(*r.ko.Spec.VisibilityConfig.MetricName)
+			f7.MetricName = r.ko.Spec.VisibilityConfig.MetricName
 		}
 		if r.ko.Spec.VisibilityConfig.SampledRequestsEnabled != nil {
-			f7.SetSampledRequestsEnabled(*r.ko.Spec.VisibilityConfig.SampledRequestsEnabled)
+			f7.SampledRequestsEnabled = *r.ko.Spec.VisibilityConfig.SampledRequestsEnabled
 		}
-		res.SetVisibilityConfig(f7)
+		res.VisibilityConfig = f7
 	}
 
 	return res, nil
@@ -6795,7 +6209,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteRuleGroup", err)
 	return nil, err
 }
@@ -6808,16 +6222,16 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteRuleGroupInput{}
 
 	if r.ko.Status.ID != nil {
-		res.SetId(*r.ko.Status.ID)
+		res.Id = r.ko.Status.ID
 	}
 	if r.ko.Status.LockToken != nil {
-		res.SetLockToken(*r.ko.Status.LockToken)
+		res.LockToken = r.ko.Status.LockToken
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scope != nil {
-		res.SetScope(*r.ko.Spec.Scope)
+		res.Scope = svcsdktypes.Scope(*r.ko.Spec.Scope)
 	}
 
 	return res, nil
@@ -6982,37 +6396,37 @@ func (rm *resourceManager) setOutputRulesNestedStatements(
 }
 
 func (rm *resourceManager) setInputRulesNestedStatements(
-	inputRules []*svcsdk.Rule,
+	inputRules []svcsdktypes.Rule,
 	r *resource,
 ) (err error) {
 	for i, rule := range r.ko.Spec.Rules {
 		if rule.Statement != nil {
 			if rule.Statement.AndStatement != nil {
-				inputRules[i].Statement.AndStatement, err = stringToStatement[svcsdk.AndStatement](rule.Statement.AndStatement)
+				inputRules[i].Statement.AndStatement, err = stringToStatement[svcsdktypes.AndStatement](rule.Statement.AndStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.OrStatement != nil {
-				inputRules[i].Statement.OrStatement, err = stringToStatement[svcsdk.OrStatement](rule.Statement.OrStatement)
+				inputRules[i].Statement.OrStatement, err = stringToStatement[svcsdktypes.OrStatement](rule.Statement.OrStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.NotStatement != nil {
-				inputRules[i].Statement.NotStatement, err = stringToStatement[svcsdk.NotStatement](rule.Statement.NotStatement)
+				inputRules[i].Statement.NotStatement, err = stringToStatement[svcsdktypes.NotStatement](rule.Statement.NotStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
-				inputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
+				inputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdktypes.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
-				inputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
+				inputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdktypes.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
 				if err != nil {
 					return err
 				}

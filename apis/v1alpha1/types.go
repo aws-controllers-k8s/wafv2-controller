@@ -216,7 +216,10 @@ type ByteMatchStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch         *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	PositionalConstraint *string               `json:"positionalConstraint,omitempty"`
 	SearchString         []byte                `json:"searchString,omitempty"`
@@ -466,7 +469,10 @@ type ExcludedRule struct {
 //     SingleHeader, and Method. In this documentation, the descriptions of the
 //     individual fields talk about specifying the web request component to inspect,
 //     but for field redaction, you are specifying the component type to redact
-//     from the logs.
+//     from the logs. If you have request sampling enabled, the redacted fields
+//     configuration for logging has no impact on sampling. The only way to exclude
+//     fields from request sampling is by disabling sampling in the web ACL visibility
+//     configuration.
 type FieldToMatch struct {
 	// Inspect all query arguments of the web request.
 	//
@@ -492,7 +498,7 @@ type FieldToMatch struct {
 	// "OversizeHandling": "MATCH" }
 	Cookies *Cookies `json:"cookies,omitempty"`
 	// Inspect a string containing the list of the request's header names, ordered
-	// as they appear in the web request that WAF receives for inspection. WAF generates
+	// as they appear in the web requestthat WAF receives for inspection. WAF generates
 	// the string and then uses that as the field to match component in its inspection.
 	// WAF separates the header names in the string using colons and no added spaces,
 	// for example host:user-agent:accept:authorization:referer.
@@ -510,11 +516,13 @@ type FieldToMatch struct {
 	// Example JSON: "Headers": { "MatchPattern": { "All": {} }, "MatchScope": "KEY",
 	// "OversizeHandling": "MATCH" }
 	Headers *Headers `json:"headers,omitempty"`
-	// Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character
-	// hash derived from the TLS Client Hello of an incoming request. This fingerprint
-	// serves as a unique identifier for the client's TLS configuration. WAF calculates
-	// and logs this fingerprint for each request that has enough TLS Client Hello
-	// information for the calculation. Almost all web requests include this information.
+	// Available for use with Amazon CloudFront distributions and Application Load
+	// Balancers. Match against the request's JA3 fingerprint. The JA3 fingerprint
+	// is a 32-character hash derived from the TLS Client Hello of an incoming request.
+	// This fingerprint serves as a unique identifier for the client's TLS configuration.
+	// WAF calculates and logs this fingerprint for each request that has enough
+	// TLS Client Hello information for the calculation. Almost all web requests
+	// include this information.
 	//
 	// You can use this choice only with a string match ByteMatchStatement with
 	// the PositionalConstraint set to EXACTLY.
@@ -539,6 +547,10 @@ type FieldToMatch struct {
 	//
 	// Example JSON: "JsonBody": { "MatchPattern": { "All": {} }, "MatchScope":
 	// "ALL" }
+	//
+	// For additional information about this request component option, see JSON
+	// body (https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-fields-list.html#waf-rule-statement-request-component-json-body)
+	// in the WAF Developer Guide.
 	JSONBody *JSONBody `json:"jsonBody,omitempty"`
 	// Inspect the HTTP method of the web request. The method indicates the type
 	// of operation that the request is asking the origin to perform.
@@ -671,13 +683,11 @@ type ForwardedIPConfig struct {
 // codes using either the IP address in the web request origin or, if you specify
 // it, the address in the geo match ForwardedIPConfig.
 //
-// If you use the web request origin, the label formats are awswaf:clientip:geo:region:<ISO
-// country code>-<ISO region code> and awswaf:clientip:geo:country:<ISO country
-// code>.
+// If you use the web request origin, the label formats are awswaf:clientip:geo:region:-
+// and awswaf:clientip:geo:country:.
 //
-// If you use a forwarded IP address, the label formats are awswaf:forwardedip:geo:region:<ISO
-// country code>-<ISO region code> and awswaf:forwardedip:geo:country:<ISO country
-// code>.
+// If you use a forwarded IP address, the label formats are awswaf:forwardedip:geo:region:-
+// and awswaf:forwardedip:geo:country:.
 //
 // For additional details, see Geographic match rule statement (https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html)
 // in the WAF Developer Guide (https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html).
@@ -718,7 +728,7 @@ type HeaderMatchPattern struct {
 }
 
 // Inspect a string containing the list of the request's header names, ordered
-// as they appear in the web request that WAF receives for inspection. WAF generates
+// as they appear in the web requestthat WAF receives for inspection. WAF generates
 // the string and then uses that as the field to match component in its inspection.
 // WAF separates the header names in the string using colons and no added spaces,
 // for example host:user-agent:accept:authorization:referer.
@@ -825,11 +835,13 @@ type ImmunityTimeProperty struct {
 	ImmunityTime *int64 `json:"immunityTime,omitempty"`
 }
 
-// Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character
-// hash derived from the TLS Client Hello of an incoming request. This fingerprint
-// serves as a unique identifier for the client's TLS configuration. WAF calculates
-// and logs this fingerprint for each request that has enough TLS Client Hello
-// information for the calculation. Almost all web requests include this information.
+// Available for use with Amazon CloudFront distributions and Application Load
+// Balancers. Match against the request's JA3 fingerprint. The JA3 fingerprint
+// is a 32-character hash derived from the TLS Client Hello of an incoming request.
+// This fingerprint serves as a unique identifier for the client's TLS configuration.
+// WAF calculates and logs this fingerprint for each request that has enough
+// TLS Client Hello information for the calculation. Almost all web requests
+// include this information.
 //
 // You can use this choice only with a string match ByteMatchStatement with
 // the PositionalConstraint set to EXACTLY.
@@ -857,6 +869,10 @@ type JA3Fingerprint struct {
 //
 // Example JSON: "JsonBody": { "MatchPattern": { "All": {} }, "MatchScope":
 // "ALL" }
+//
+// For additional information about this request component option, see JSON
+// body (https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-fields-list.html#waf-rule-statement-request-component-json-body)
+// in the WAF Developer Guide.
 type JSONBody struct {
 	InvalidFallbackBehavior *string `json:"invalidFallbackBehavior,omitempty"`
 	// The patterns to look for in the JSON body. WAF inspects the results of these
@@ -1473,7 +1489,10 @@ type RegexMatchStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	RegexString         *string               `json:"regexString,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -1523,7 +1542,10 @@ type RegexPatternSetReferenceStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
 }
@@ -1924,7 +1946,10 @@ type SQLIMatchStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	SensitivityLevel    *string               `json:"sensitivityLevel,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -1964,22 +1989,6 @@ type SingleQueryArgument struct {
 	Name *string `json:"name,omitempty"`
 }
 
-// A rule statement that compares a number of bytes against the size of a request
-// component, using a comparison operator, such as greater than (>) or less
-// than (<). For example, you can use a size constraint statement to look for
-// query strings that are longer than 100 bytes.
-//
-// If you configure WAF to inspect the request body, WAF inspects only the number
-// of bytes in the body up to the limit for the web ACL and protected resource
-// type. If you know that the request body for your web requests should never
-// exceed the inspection limit, you can use a size constraint statement to block
-// requests that have a larger request body size. For more information about
-// the inspection limits, see Body and JsonBody settings for the FieldToMatch
-// data type.
-//
-// If you choose URI for the value of Part of the request to filter on, the
-// slash (/) in the URI counts as one character. For example, the URI /logo.jpg
-// is nine characters long.
 type SizeConstraintStatement struct {
 	ComparisonOperator *string `json:"comparisonOperator,omitempty"`
 	// Specifies a web request component to be used in a rule match statement or
@@ -2002,7 +2011,10 @@ type SizeConstraintStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	Size                *int64                `json:"size,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -2039,13 +2051,11 @@ type Statement struct {
 	// codes using either the IP address in the web request origin or, if you specify
 	// it, the address in the geo match ForwardedIPConfig.
 	//
-	// If you use the web request origin, the label formats are awswaf:clientip:geo:region:<ISO
-	// country code>-<ISO region code> and awswaf:clientip:geo:country:<ISO country
-	// code>.
+	// If you use the web request origin, the label formats are awswaf:clientip:geo:region:-
+	// and awswaf:clientip:geo:country:.
 	//
-	// If you use a forwarded IP address, the label formats are awswaf:forwardedip:geo:region:<ISO
-	// country code>-<ISO region code> and awswaf:forwardedip:geo:country:<ISO country
-	// code>.
+	// If you use a forwarded IP address, the label formats are awswaf:forwardedip:geo:region:-
+	// and awswaf:forwardedip:geo:country:.
 	//
 	// For additional details, see Geographic match rule statement (https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html)
 	// in the WAF Developer Guide (https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html).
@@ -2196,23 +2206,7 @@ type Statement struct {
 	// inside another rule group. You can only reference a rule group as a top-level
 	// statement within a rule that you define in a web ACL.
 	RuleGroupReferenceStatement *RuleGroupReferenceStatement `json:"ruleGroupReferenceStatement,omitempty"`
-	// A rule statement that compares a number of bytes against the size of a request
-	// component, using a comparison operator, such as greater than (>) or less
-	// than (<). For example, you can use a size constraint statement to look for
-	// query strings that are longer than 100 bytes.
-	//
-	// If you configure WAF to inspect the request body, WAF inspects only the number
-	// of bytes in the body up to the limit for the web ACL and protected resource
-	// type. If you know that the request body for your web requests should never
-	// exceed the inspection limit, you can use a size constraint statement to block
-	// requests that have a larger request body size. For more information about
-	// the inspection limits, see Body and JsonBody settings for the FieldToMatch
-	// data type.
-	//
-	// If you choose URI for the value of Part of the request to filter on, the
-	// slash (/) in the URI counts as one character. For example, the URI /logo.jpg
-	// is nine characters long.
-	SizeConstraintStatement *SizeConstraintStatement `json:"sizeConstraintStatement,omitempty"`
+	SizeConstraintStatement     *SizeConstraintStatement     `json:"sizeConstraintStatement,omitempty"`
 	// A rule statement that inspects for malicious SQL code. Attackers insert malicious
 	// SQL code into web requests to do things like modify your database or extract
 	// data from it.
@@ -2352,6 +2346,7 @@ type WebACL_SDK struct {
 	Name                                 *string                     `json:"name,omitempty"`
 	PostProcessFirewallManagerRuleGroups []*FirewallManagerRuleGroup `json:"postProcessFirewallManagerRuleGroups,omitempty"`
 	PreProcessFirewallManagerRuleGroups  []*FirewallManagerRuleGroup `json:"preProcessFirewallManagerRuleGroups,omitempty"`
+	RetrofittedByFirewallManager         *bool                       `json:"retrofittedByFirewallManager,omitempty"`
 	Rules                                []*Rule                     `json:"rules,omitempty"`
 	TokenDomains                         []*string                   `json:"tokenDomains,omitempty"`
 	// Defines and enables Amazon CloudWatch metrics and web request sample collection.
@@ -2382,7 +2377,10 @@ type XSSMatchStatement struct {
 	//    SingleHeader, and Method. In this documentation, the descriptions of the
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
-	//    from the logs.
+	//    from the logs. If you have request sampling enabled, the redacted fields
+	//    configuration for logging has no impact on sampling. The only way to exclude
+	//    fields from request sampling is by disabling sampling in the web ACL visibility
+	//    configuration.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
 }
