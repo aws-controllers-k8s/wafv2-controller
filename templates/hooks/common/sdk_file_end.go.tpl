@@ -40,37 +40,37 @@ func (rm *resourceManager) setOutputRulesNestedStatements (
 }
 
 func (rm *resourceManager) setInputRulesNestedStatements (
-    inputRules []*svcsdk.Rule,
+    inputRules []svcsdktypes.Rule,
 	r *resource,
 ) (err error) {
 	for i, rule := range r.ko.Spec.Rules {
 		if rule.Statement != nil {				
 			if rule.Statement.AndStatement != nil {
-				inputRules[i].Statement.AndStatement, err = stringToStatement[svcsdk.AndStatement](rule.Statement.AndStatement)
+				inputRules[i].Statement.AndStatement, err = stringToStatement[svcsdktypes.AndStatement](rule.Statement.AndStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.OrStatement != nil {
-				inputRules[i].Statement.OrStatement, err = stringToStatement[svcsdk.OrStatement](rule.Statement.OrStatement)
+				inputRules[i].Statement.OrStatement, err = stringToStatement[svcsdktypes.OrStatement](rule.Statement.OrStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.NotStatement != nil {
-				inputRules[i].Statement.NotStatement, err = stringToStatement[svcsdk.NotStatement](rule.Statement.NotStatement)
+				inputRules[i].Statement.NotStatement, err = stringToStatement[svcsdktypes.NotStatement](rule.Statement.NotStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.ManagedRuleGroupStatement != nil && rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement != nil {
-				inputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
+				inputRules[i].Statement.ManagedRuleGroupStatement.ScopeDownStatement, err = stringToStatement[svcsdktypes.Statement](rule.Statement.ManagedRuleGroupStatement.ScopeDownStatement)
 				if err != nil {
 					return err
 				}
 			}
 			if rule.Statement.RateBasedStatement != nil && rule.Statement.RateBasedStatement.ScopeDownStatement != nil {
-				inputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdk.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
+				inputRules[i].Statement.RateBasedStatement.ScopeDownStatement, err = stringToStatement[svcsdktypes.Statement](rule.Statement.RateBasedStatement.ScopeDownStatement)
 				if err != nil {
 					return err
 				}
