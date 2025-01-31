@@ -19,6 +19,7 @@ import (
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackerrors "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rtclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -92,11 +93,11 @@ func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error 
 
 	f0, f0ok := identifier.AdditionalKeys["id"]
 	if f0ok {
-		r.ko.Status.ID = &f0
+		r.ko.Status.ID = aws.String(f0)
 	}
 	f2, f2ok := identifier.AdditionalKeys["scope"]
 	if f2ok {
-		r.ko.Spec.Scope = &f2
+		r.ko.Spec.Scope = aws.String(f2)
 	}
 
 	return nil
@@ -112,11 +113,11 @@ func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) erro
 
 	f0, f0ok := fields["id"]
 	if f0ok {
-		r.ko.Status.ID = &f0
+		r.ko.Status.ID = aws.String(f0)
 	}
 	f2, f2ok := fields["scope"]
 	if f2ok {
-		r.ko.Spec.Scope = &f2
+		r.ko.Spec.Scope = aws.String(f2)
 	}
 
 	return nil
