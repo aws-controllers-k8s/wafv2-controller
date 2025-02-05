@@ -3,12 +3,12 @@ package web_acl
 import (
 	"github.com/ghodss/yaml"
 
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
 	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/wafv2"
 )
 
 type Statement interface {
-	svcsdk.Statement | svcsdk.AndStatement | svcsdk.OrStatement | svcsdk.NotStatement
+	svcsdktypes.Statement | svcsdktypes.AndStatement | svcsdktypes.OrStatement | svcsdktypes.NotStatement
 }
 
 func statementToString[T Statement](cfg *T) (*string, error) {

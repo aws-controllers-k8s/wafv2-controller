@@ -4066,6 +4066,11 @@ func (in *WebACL_SDK) DeepCopyInto(out *WebACL_SDK) {
 			}
 		}
 	}
+	if in.RetrofittedByFirewallManager != nil {
+		in, out := &in.RetrofittedByFirewallManager, &out.RetrofittedByFirewallManager
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rules != nil {
 		in, out := &in.Rules, &out.Rules
 		*out = make([]*Rule, len(*in))
