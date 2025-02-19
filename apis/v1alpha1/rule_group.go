@@ -44,7 +44,10 @@ type RuleGroupSpec struct {
 	// plan their web ACL WCU usage when they use a rule group. For more information,
 	// see WAF web ACL capacity units (WCU) (https://docs.aws.amazon.com/waf/latest/developerguide/aws-waf-capacity-units.html)
 	// in the WAF Developer Guide.
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
+
 	Capacity *int64 `json:"capacity"`
 	// A map of custom response keys and content bodies. When you create a rule
 	// with a block action, you can send a custom response to the web request. You
@@ -58,16 +61,22 @@ type RuleGroupSpec struct {
 	// For information about the limits on count and size for custom request and
 	// response settings, see WAF quotas (https://docs.aws.amazon.com/waf/latest/developerguide/limits.html)
 	// in the WAF Developer Guide.
+
 	CustomResponseBodies map[string]*CustomResponseBody `json:"customResponseBodies,omitempty"`
 	// A description of the rule group that helps with identification.
+
 	Description *string `json:"description,omitempty"`
 	// The name of the rule group. You cannot change the name of a rule group after
 	// you create it.
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// The Rule statements used to identify the web requests that you want to manage.
 	// Each rule includes one top-level statement that WAF uses to identify matching
 	// web requests, and parameters that govern how WAF handles them.
+
 	Rules []*Rule `json:"rules,omitempty"`
 	// Specifies whether this is for an Amazon CloudFront distribution or for a
 	// regional application. A regional application can be an Application Load Balancer
@@ -78,17 +87,21 @@ type RuleGroupSpec struct {
 	// To work with CloudFront, you must also specify the Region US East (N. Virginia)
 	// as follows:
 	//
-	//   - CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
-	//     --region=us-east-1.
+	//    * CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
+	//    --region=us-east-1.
 	//
-	//   - API and SDKs - For all calls, use the Region endpoint us-east-1.
-	//
+	//    * API and SDKs - For all calls, use the Region endpoint us-east-1.
+
 	// +kubebuilder:validation:Required
+
 	Scope *string `json:"scope"`
 	// An array of key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// Defines and enables Amazon CloudWatch metrics and web request sample collection.
+
 	// +kubebuilder:validation:Required
+
 	VisibilityConfig *VisibilityConfig `json:"visibilityConfig"`
 }
 
@@ -99,7 +112,7 @@ type RuleGroupStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
