@@ -49,14 +49,17 @@ type WebACLSpec struct {
 	//
 	// For Application Load Balancer and AppSync, the limit is fixed at 8 KB (8,192
 	// bytes).
+
 	AssociationConfig *AssociationConfig `json:"associationConfig,omitempty"`
 	// Specifies how WAF should handle CAPTCHA evaluations for rules that don't
 	// have their own CaptchaConfig settings. If you don't specify this, WAF uses
 	// its default settings for CaptchaConfig.
+
 	CaptchaConfig *CaptchaConfig `json:"captchaConfig,omitempty"`
 	// Specifies how WAF should handle challenge evaluations for rules that don't
 	// have their own ChallengeConfig settings. If you don't specify this, WAF uses
 	// its default settings for ChallengeConfig.
+
 	ChallengeConfig *ChallengeConfig `json:"challengeConfig,omitempty"`
 	// A map of custom response keys and content bodies. When you create a rule
 	// with a block action, you can send a custom response to the web request. You
@@ -70,19 +73,27 @@ type WebACLSpec struct {
 	// For information about the limits on count and size for custom request and
 	// response settings, see WAF quotas (https://docs.aws.amazon.com/waf/latest/developerguide/limits.html)
 	// in the WAF Developer Guide.
+
 	CustomResponseBodies map[string]*CustomResponseBody `json:"customResponseBodies,omitempty"`
 	// The action to perform if none of the Rules contained in the WebACL match.
+
 	// +kubebuilder:validation:Required
+
 	DefaultAction *DefaultAction `json:"defaultAction"`
 	// A description of the web ACL that helps with identification.
+
 	Description *string `json:"description,omitempty"`
 	// The name of the web ACL. You cannot change the name of a web ACL after you
 	// create it.
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// The Rule statements used to identify the web requests that you want to manage.
 	// Each rule includes one top-level statement that WAF uses to identify matching
 	// web requests, and parameters that govern how WAF handles them.
+
 	Rules []*Rule `json:"rules,omitempty"`
 	// Specifies whether this is for an Amazon CloudFront distribution or for a
 	// regional application. A regional application can be an Application Load Balancer
@@ -93,14 +104,16 @@ type WebACLSpec struct {
 	// To work with CloudFront, you must also specify the Region US East (N. Virginia)
 	// as follows:
 	//
-	//   - CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
-	//     --region=us-east-1.
+	//    * CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
+	//    --region=us-east-1.
 	//
-	//   - API and SDKs - For all calls, use the Region endpoint us-east-1.
-	//
+	//    * API and SDKs - For all calls, use the Region endpoint us-east-1.
+
 	// +kubebuilder:validation:Required
+
 	Scope *string `json:"scope"`
 	// An array of key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// Specifies the domains that WAF should accept in a web request token. This
 	// enables the use of tokens across multiple protected websites. When WAF provides
@@ -114,9 +127,12 @@ type WebACLSpec struct {
 	//
 	// Public suffixes aren't allowed. For example, you can't use gov.au or co.uk
 	// as token domains.
+
 	TokenDomains []*string `json:"tokenDomains,omitempty"`
 	// Defines and enables Amazon CloudWatch metrics and web request sample collection.
+
 	// +kubebuilder:validation:Required
+
 	VisibilityConfig *VisibilityConfig `json:"visibilityConfig"`
 }
 
@@ -127,7 +143,7 @@ type WebACLStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

@@ -38,42 +38,49 @@ type IPSetSpec struct {
 	//
 	// Example address strings:
 	//
-	//   - For requests that originated from the IP address 192.0.2.44, specify
-	//     192.0.2.44/32.
+	//    * For requests that originated from the IP address 192.0.2.44, specify
+	//    192.0.2.44/32.
 	//
-	//   - For requests that originated from IP addresses from 192.0.2.0 to 192.0.2.255,
-	//     specify 192.0.2.0/24.
+	//    * For requests that originated from IP addresses from 192.0.2.0 to 192.0.2.255,
+	//    specify 192.0.2.0/24.
 	//
-	//   - For requests that originated from the IP address 1111:0000:0000:0000:0000:0000:0000:0111,
-	//     specify 1111:0000:0000:0000:0000:0000:0000:0111/128.
+	//    * For requests that originated from the IP address 1111:0000:0000:0000:0000:0000:0000:0111,
+	//    specify 1111:0000:0000:0000:0000:0000:0000:0111/128.
 	//
-	//   - For requests that originated from IP addresses 1111:0000:0000:0000:0000:0000:0000:0000
-	//     to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify 1111:0000:0000:0000:0000:0000:0000:0000/64.
+	//    * For requests that originated from IP addresses 1111:0000:0000:0000:0000:0000:0000:0000
+	//    to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify 1111:0000:0000:0000:0000:0000:0000:0000/64.
 	//
 	// For more information about CIDR notation, see the Wikipedia entry Classless
 	// Inter-Domain Routing (https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing).
 	//
 	// Example JSON Addresses specifications:
 	//
-	//   - Empty array: "Addresses": []
+	//    * Empty array: "Addresses": []
 	//
-	//   - Array with one address: "Addresses": ["192.0.2.44/32"]
+	//    * Array with one address: "Addresses": ["192.0.2.44/32"]
 	//
-	//   - Array with three addresses: "Addresses": ["192.0.2.44/32", "192.0.2.0/24",
-	//     "192.0.0.0/16"]
+	//    * Array with three addresses: "Addresses": ["192.0.2.44/32", "192.0.2.0/24",
+	//    "192.0.0.0/16"]
 	//
-	//   - INVALID specification: "Addresses": [""] INVALID
-	//
+	//    * INVALID specification: "Addresses": [""] INVALID
+
 	// +kubebuilder:validation:Required
+
 	Addresses []*string `json:"addresses"`
 	// A description of the IP set that helps with identification.
+
 	Description *string `json:"description,omitempty"`
 	// The version of the IP addresses, either IPV4 or IPV6.
+
 	// +kubebuilder:validation:Required
+
 	IPAddressVersion *string `json:"ipAddressVersion"`
 	// The name of the IP set. You cannot change the name of an IPSet after you
 	// create it.
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
+
 	Name *string `json:"name"`
 	// Specifies whether this is for an Amazon CloudFront distribution or for a
 	// regional application. A regional application can be an Application Load Balancer
@@ -84,14 +91,16 @@ type IPSetSpec struct {
 	// To work with CloudFront, you must also specify the Region US East (N. Virginia)
 	// as follows:
 	//
-	//   - CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
-	//     --region=us-east-1.
+	//    * CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
+	//    --region=us-east-1.
 	//
-	//   - API and SDKs - For all calls, use the Region endpoint us-east-1.
-	//
+	//    * API and SDKs - For all calls, use the Region endpoint us-east-1.
+
 	// +kubebuilder:validation:Required
+
 	Scope *string `json:"scope"`
 	// An array of key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -102,7 +111,7 @@ type IPSetStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
