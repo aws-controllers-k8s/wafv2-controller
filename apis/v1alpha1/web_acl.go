@@ -78,6 +78,7 @@ type WebACLSpec struct {
 	Description *string `json:"description,omitempty"`
 	// The name of the web ACL. You cannot change the name of a web ACL after you
 	// create it.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
 	// The Rule statements used to identify the web requests that you want to manage.
@@ -127,7 +128,7 @@ type WebACLStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

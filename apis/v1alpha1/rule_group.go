@@ -44,6 +44,7 @@ type RuleGroupSpec struct {
 	// plan their web ACL WCU usage when they use a rule group. For more information,
 	// see WAF web ACL capacity units (WCU) (https://docs.aws.amazon.com/waf/latest/developerguide/aws-waf-capacity-units.html)
 	// in the WAF Developer Guide.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Capacity *int64 `json:"capacity"`
 	// A map of custom response keys and content bodies. When you create a rule
@@ -63,6 +64,7 @@ type RuleGroupSpec struct {
 	Description *string `json:"description,omitempty"`
 	// The name of the rule group. You cannot change the name of a rule group after
 	// you create it.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
 	// The Rule statements used to identify the web requests that you want to manage.
@@ -99,7 +101,7 @@ type RuleGroupStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
