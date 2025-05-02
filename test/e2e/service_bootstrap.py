@@ -15,15 +15,49 @@
 import logging
 
 from acktest.bootstrapping import Resources, BootstrapFailureException
+from acktest.bootstrapping.s3 import Bucket
 
 from e2e import bootstrap_directory
 from e2e.bootstrap_resources import BootstrapResources
+
+# WAF logging S3 bucket policy that allows AWS WAF to write logs
+WAF_LOGGING_BUCKET_POLICY = """{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AWSLogDeliveryWrite",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "delivery.logs.amazonaws.com"
+      },
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::$NAME/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-acl": "bucket-owner-full-control"
+        }
+      }
+    },
+    {
+      "Sid": "AWSLogDeliveryAclCheck",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "delivery.logs.amazonaws.com"
+      },
+      "Action": "s3:GetBucketAcl",
+      "Resource": "arn:aws:s3:::$NAME"
+    }
+  ]
+}"""
 
 def service_bootstrap() -> Resources:
     logging.getLogger().setLevel(logging.INFO)
 
     resources = BootstrapResources(
-        # TODO: Add bootstrapping when you have defined the resources
+        WAFLoggingBucket=Bucket(
+            name_prefix="aws-waf-logs-example",
+            policy=WAF_LOGGING_BUCKET_POLICY
+        )
     )
 
     try:

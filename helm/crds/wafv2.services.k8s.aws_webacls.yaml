@@ -229,6 +229,395 @@ spec:
               description:
                 description: A description of the web ACL that helps with identification.
                 type: string
+              loggingConfiguration:
+                description: |-
+                  Defines an association between logging destinations and a web ACL resource,
+                  for logging from WAF. As part of the association, you can specify parts of
+                  the standard logging fields to keep out of the logs and you can specify filters
+                  so that you log only a subset of the logging records.
+
+                  You can define one logging destination per web ACL.
+
+                  You can access information about the traffic that WAF inspects using the
+                  following steps:
+
+                  Create your logging destination. You can use an Amazon CloudWatch Logs log
+                  group, an Amazon Simple Storage Service (Amazon S3) bucket, or an Amazon
+                  Kinesis Data Firehose.
+
+                  The name that you give the destination must start with aws-waf-logs-. Depending
+                  on the type of destination, you might need to configure additional settings
+                  or permissions.
+
+                  For configuration requirements and pricing information for each destination
+                  type, see Logging web ACL traffic (https://docs.aws.amazon.com/waf/latest/developerguide/logging.html)
+                  in the WAF Developer Guide.
+
+                  Associate your logging destination to your web ACL using a PutLoggingConfiguration
+                  request.
+
+                  When you successfully enable logging using a PutLoggingConfiguration request,
+                  WAF creates an additional role or policy that is required to write logs to
+                  the logging destination. For an Amazon CloudWatch Logs log group, WAF creates
+                  a resource policy on the log group. For an Amazon S3 bucket, WAF creates
+                  a bucket policy. For an Amazon Kinesis Data Firehose, WAF creates a service-linked
+                  role.
+
+                  For additional information about web ACL logging, see Logging web ACL traffic
+                  information (https://docs.aws.amazon.com/waf/latest/developerguide/logging.html)
+                  in the WAF Developer Guide.
+                properties:
+                  logDestinationConfigs:
+                    items:
+                      type: string
+                    type: array
+                  logScope:
+                    type: string
+                  logType:
+                    type: string
+                  loggingFilter:
+                    description: |-
+                      Filtering that specifies which web requests are kept in the logs and which
+                      are dropped, defined for a web ACL's LoggingConfiguration.
+
+                      You can filter on the rule action and on the web request labels that were
+                      applied by matching rules during web ACL evaluation.
+                    properties:
+                      defaultBehavior:
+                        type: string
+                      filters:
+                        items:
+                          description: A single logging filter, used in LoggingFilter.
+                          properties:
+                            behavior:
+                              type: string
+                            conditions:
+                              items:
+                                description: A single match condition for a Filter.
+                                properties:
+                                  actionCondition:
+                                    description: A single action condition for a Condition
+                                      in a logging filter.
+                                    properties:
+                                      action:
+                                        type: string
+                                    type: object
+                                  labelNameCondition:
+                                    description: A single label name condition for
+                                      a Condition in a logging filter.
+                                    properties:
+                                      labelName:
+                                        type: string
+                                    type: object
+                                type: object
+                              type: array
+                            requirement:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  managedByFirewallManager:
+                    type: boolean
+                  redactedFields:
+                    items:
+                      description: |-
+                        Specifies a web request component to be used in a rule match statement or
+                        in a logging configuration.
+
+                          - In a rule statement, this is the part of the web request that you want
+                            WAF to inspect. Include the single FieldToMatch type that you want to
+                            inspect, with additional specifications as needed, according to the type.
+                            You specify a single request component in FieldToMatch for each rule statement
+                            that requires it. To inspect more than one component of the web request,
+                            create a separate rule statement for each component. Example JSON for
+                            a QueryString field to match: "FieldToMatch": { "QueryString": {} } Example
+                            JSON for a Method field to match specification: "FieldToMatch": { "Method":
+                            { "Name": "DELETE" } }
+
+                          - In a logging configuration, this is used in the RedactedFields property
+                            to specify a field to redact from the logging records. For this use case,
+                            note the following: Even though all FieldToMatch settings are available,
+                            the only valid settings for field redaction are UriPath, QueryString,
+                            SingleHeader, and Method. In this documentation, the descriptions of the
+                            individual fields talk about specifying the web request component to inspect,
+                            but for field redaction, you are specifying the component type to redact
+                            from the logs. If you have request sampling enabled, the redacted fields
+                            configuration for logging has no impact on sampling. The only way to exclude
+                            fields from request sampling is by disabling sampling in the web ACL visibility
+                            configuration.
+                      properties:
+                        allQueryArguments:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Inspect all query arguments of the web request.
+
+                            This is used in the FieldToMatch specification for some web request component
+                            types.
+
+                            JSON specification: "AllQueryArguments": {}
+                          type: object
+                        body:
+                          description: |-
+                            Inspect the body of the web request. The body immediately follows the request
+                            headers.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+                          properties:
+                            oversizeHandling:
+                              type: string
+                          type: object
+                        cookies:
+                          description: |-
+                            Inspect the cookies in the web request. You can specify the parts of the
+                            cookies to inspect and you can narrow the set of cookies to inspect by including
+                            or excluding specific keys.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+
+                            Example JSON: "Cookies": { "MatchPattern": { "All": {} }, "MatchScope": "KEY",
+                            "OversizeHandling": "MATCH" }
+                          properties:
+                            matchPattern:
+                              description: |-
+                                The filter to use to identify the subset of cookies to inspect in a web request.
+
+                                You must specify exactly one setting: either All, IncludedCookies, or ExcludedCookies.
+
+                                Example JSON: "MatchPattern": { "IncludedCookies": [ "session-id-time", "session-id"
+                                ] }
+                              properties:
+                                all:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Inspect all of the elements that WAF has parsed and extracted from the web
+                                    request component that you've identified in your FieldToMatch specifications.
+
+                                    This is used in the FieldToMatch specification for some web request component
+                                    types.
+
+                                    JSON specification: "All": {}
+                                  type: object
+                                excludedCookies:
+                                  items:
+                                    type: string
+                                  type: array
+                                includedCookies:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            matchScope:
+                              type: string
+                            oversizeHandling:
+                              type: string
+                          type: object
+                        headerOrder:
+                          description: |-
+                            Inspect a string containing the list of the request's header names, ordered
+                            as they appear in the web requestthat WAF receives for inspection. WAF generates
+                            the string and then uses that as the field to match component in its inspection.
+                            WAF separates the header names in the string using colons and no added spaces,
+                            for example host:user-agent:accept:authorization:referer.
+                          properties:
+                            oversizeHandling:
+                              type: string
+                          type: object
+                        headers:
+                          description: |-
+                            Inspect all headers in the web request. You can specify the parts of the
+                            headers to inspect and you can narrow the set of headers to inspect by including
+                            or excluding specific keys.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+
+                            If you want to inspect just the value of a single header, use the SingleHeader
+                            FieldToMatch setting instead.
+
+                            Example JSON: "Headers": { "MatchPattern": { "All": {} }, "MatchScope": "KEY",
+                            "OversizeHandling": "MATCH" }
+                          properties:
+                            matchPattern:
+                              description: |-
+                                The filter to use to identify the subset of headers to inspect in a web request.
+
+                                You must specify exactly one setting: either All, IncludedHeaders, or ExcludedHeaders.
+
+                                Example JSON: "MatchPattern": { "ExcludedHeaders": [ "KeyToExclude1", "KeyToExclude2"
+                                ] }
+                              properties:
+                                all:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Inspect all of the elements that WAF has parsed and extracted from the web
+                                    request component that you've identified in your FieldToMatch specifications.
+
+                                    This is used in the FieldToMatch specification for some web request component
+                                    types.
+
+                                    JSON specification: "All": {}
+                                  type: object
+                                excludedHeaders:
+                                  items:
+                                    type: string
+                                  type: array
+                                includedHeaders:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            matchScope:
+                              type: string
+                            oversizeHandling:
+                              type: string
+                          type: object
+                        ja3Fingerprint:
+                          description: |-
+                            Available for use with Amazon CloudFront distributions and Application Load
+                            Balancers. Match against the request's JA3 fingerprint. The JA3 fingerprint
+                            is a 32-character hash derived from the TLS Client Hello of an incoming request.
+                            This fingerprint serves as a unique identifier for the client's TLS configuration.
+                            WAF calculates and logs this fingerprint for each request that has enough
+                            TLS Client Hello information for the calculation. Almost all web requests
+                            include this information.
+
+                            You can use this choice only with a string match ByteMatchStatement with
+                            the PositionalConstraint set to EXACTLY.
+
+                            You can obtain the JA3 fingerprint for client requests from the web ACL logs.
+                            If WAF is able to calculate the fingerprint, it includes it in the logs.
+                            For information about the logging fields, see Log fields (https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html)
+                            in the WAF Developer Guide.
+
+                            Provide the JA3 fingerprint string from the logs in your string match statement
+                            specification, to match with any future requests that have the same TLS configuration.
+                          properties:
+                            fallbackBehavior:
+                              type: string
+                          type: object
+                        jsonBody:
+                          description: |-
+                            Inspect the body of the web request as JSON. The body immediately follows
+                            the request headers.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+
+                            Use the specifications in this object to indicate which parts of the JSON
+                            body to inspect using the rule's inspection criteria. WAF inspects only the
+                            parts of the JSON that result from the matches that you indicate.
+
+                            Example JSON: "JsonBody": { "MatchPattern": { "All": {} }, "MatchScope":
+                            "ALL" }
+
+                            For additional information about this request component option, see JSON
+                            body (https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-fields-list.html#waf-rule-statement-request-component-json-body)
+                            in the WAF Developer Guide.
+                          properties:
+                            invalidFallbackBehavior:
+                              type: string
+                            matchPattern:
+                              description: |-
+                                The patterns to look for in the JSON body. WAF inspects the results of these
+                                pattern matches against the rule inspection criteria. This is used with the
+                                FieldToMatch option JsonBody.
+                              properties:
+                                all:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Inspect all of the elements that WAF has parsed and extracted from the web
+                                    request component that you've identified in your FieldToMatch specifications.
+
+                                    This is used in the FieldToMatch specification for some web request component
+                                    types.
+
+                                    JSON specification: "All": {}
+                                  type: object
+                                includedPaths:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            matchScope:
+                              type: string
+                            oversizeHandling:
+                              type: string
+                          type: object
+                        method:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Inspect the HTTP method of the web request. The method indicates the type
+                            of operation that the request is asking the origin to perform.
+
+                            This is used in the FieldToMatch specification for some web request component
+                            types.
+
+                            JSON specification: "Method": {}
+                          type: object
+                        queryString:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Inspect the query string of the web request. This is the part of a URL that
+                            appears after a ? character, if any.
+
+                            This is used in the FieldToMatch specification for some web request component
+                            types.
+
+                            JSON specification: "QueryString": {}
+                          type: object
+                        singleHeader:
+                          description: |-
+                            Inspect one of the headers in the web request, identified by name, for example,
+                            User-Agent or Referer. The name isn't case sensitive.
+
+                            You can filter and inspect all headers with the FieldToMatch setting Headers.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+
+                            Example JSON: "SingleHeader": { "Name": "haystack" }
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        singleQueryArgument:
+                          description: |-
+                            Inspect one query argument in the web request, identified by name, for example
+                            UserName or SalesRegion. The name isn't case sensitive.
+
+                            This is used to indicate the web request component to inspect, in the FieldToMatch
+                            specification.
+
+                            Example JSON: "SingleQueryArgument": { "Name": "myArgument" }
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        uriPath:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            Inspect the path component of the URI of the web request. This is the part
+                            of the web request that identifies a resource. For example, /images/daily-ad.jpg.
+
+                            This is used in the FieldToMatch specification for some web request component
+                            types.
+
+                            JSON specification: "UriPath": {}
+                          type: object
+                      type: object
+                    type: array
+                  resourceARN:
+                    type: string
+                type: object
               name:
                 description: |-
                   The name of the web ACL. You cannot change the name of a web ACL after you

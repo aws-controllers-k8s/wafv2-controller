@@ -146,6 +146,70 @@ func newResourceDelta(
 			delta.Add("Spec.Description", a.ko.Spec.Description, b.ko.Spec.Description)
 		}
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration, b.ko.Spec.LoggingConfiguration) {
+		delta.Add("Spec.LoggingConfiguration", a.ko.Spec.LoggingConfiguration, b.ko.Spec.LoggingConfiguration)
+	} else if a.ko.Spec.LoggingConfiguration != nil && b.ko.Spec.LoggingConfiguration != nil {
+		if len(a.ko.Spec.LoggingConfiguration.LogDestinationConfigs) != len(b.ko.Spec.LoggingConfiguration.LogDestinationConfigs) {
+			delta.Add("Spec.LoggingConfiguration.LogDestinationConfigs", a.ko.Spec.LoggingConfiguration.LogDestinationConfigs, b.ko.Spec.LoggingConfiguration.LogDestinationConfigs)
+		} else if len(a.ko.Spec.LoggingConfiguration.LogDestinationConfigs) > 0 {
+			if !ackcompare.SliceStringPEqual(a.ko.Spec.LoggingConfiguration.LogDestinationConfigs, b.ko.Spec.LoggingConfiguration.LogDestinationConfigs) {
+				delta.Add("Spec.LoggingConfiguration.LogDestinationConfigs", a.ko.Spec.LoggingConfiguration.LogDestinationConfigs, b.ko.Spec.LoggingConfiguration.LogDestinationConfigs)
+			}
+		}
+		if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.LogScope, b.ko.Spec.LoggingConfiguration.LogScope) {
+			delta.Add("Spec.LoggingConfiguration.LogScope", a.ko.Spec.LoggingConfiguration.LogScope, b.ko.Spec.LoggingConfiguration.LogScope)
+		} else if a.ko.Spec.LoggingConfiguration.LogScope != nil && b.ko.Spec.LoggingConfiguration.LogScope != nil {
+			if *a.ko.Spec.LoggingConfiguration.LogScope != *b.ko.Spec.LoggingConfiguration.LogScope {
+				delta.Add("Spec.LoggingConfiguration.LogScope", a.ko.Spec.LoggingConfiguration.LogScope, b.ko.Spec.LoggingConfiguration.LogScope)
+			}
+		}
+		if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.LogType, b.ko.Spec.LoggingConfiguration.LogType) {
+			delta.Add("Spec.LoggingConfiguration.LogType", a.ko.Spec.LoggingConfiguration.LogType, b.ko.Spec.LoggingConfiguration.LogType)
+		} else if a.ko.Spec.LoggingConfiguration.LogType != nil && b.ko.Spec.LoggingConfiguration.LogType != nil {
+			if *a.ko.Spec.LoggingConfiguration.LogType != *b.ko.Spec.LoggingConfiguration.LogType {
+				delta.Add("Spec.LoggingConfiguration.LogType", a.ko.Spec.LoggingConfiguration.LogType, b.ko.Spec.LoggingConfiguration.LogType)
+			}
+		}
+		if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.LoggingFilter, b.ko.Spec.LoggingConfiguration.LoggingFilter) {
+			delta.Add("Spec.LoggingConfiguration.LoggingFilter", a.ko.Spec.LoggingConfiguration.LoggingFilter, b.ko.Spec.LoggingConfiguration.LoggingFilter)
+		} else if a.ko.Spec.LoggingConfiguration.LoggingFilter != nil && b.ko.Spec.LoggingConfiguration.LoggingFilter != nil {
+			if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior, b.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior) {
+				delta.Add("Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior", a.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior, b.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior)
+			} else if a.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior != nil && b.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior != nil {
+				if *a.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior != *b.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior {
+					delta.Add("Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior", a.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior, b.ko.Spec.LoggingConfiguration.LoggingFilter.DefaultBehavior)
+				}
+			}
+			if len(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) != len(b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) {
+				delta.Add("Spec.LoggingConfiguration.LoggingFilter.Filters", a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters)
+			} else if len(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) > 0 {
+				if !reflect.DeepEqual(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) {
+					delta.Add("Spec.LoggingConfiguration.LoggingFilter.Filters", a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters)
+				}
+			}
+		}
+		if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.ManagedByFirewallManager, b.ko.Spec.LoggingConfiguration.ManagedByFirewallManager) {
+			delta.Add("Spec.LoggingConfiguration.ManagedByFirewallManager", a.ko.Spec.LoggingConfiguration.ManagedByFirewallManager, b.ko.Spec.LoggingConfiguration.ManagedByFirewallManager)
+		} else if a.ko.Spec.LoggingConfiguration.ManagedByFirewallManager != nil && b.ko.Spec.LoggingConfiguration.ManagedByFirewallManager != nil {
+			if *a.ko.Spec.LoggingConfiguration.ManagedByFirewallManager != *b.ko.Spec.LoggingConfiguration.ManagedByFirewallManager {
+				delta.Add("Spec.LoggingConfiguration.ManagedByFirewallManager", a.ko.Spec.LoggingConfiguration.ManagedByFirewallManager, b.ko.Spec.LoggingConfiguration.ManagedByFirewallManager)
+			}
+		}
+		if len(a.ko.Spec.LoggingConfiguration.RedactedFields) != len(b.ko.Spec.LoggingConfiguration.RedactedFields) {
+			delta.Add("Spec.LoggingConfiguration.RedactedFields", a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields)
+		} else if len(a.ko.Spec.LoggingConfiguration.RedactedFields) > 0 {
+			if !reflect.DeepEqual(a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields) {
+				delta.Add("Spec.LoggingConfiguration.RedactedFields", a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields)
+			}
+		}
+		if ackcompare.HasNilDifference(a.ko.Spec.LoggingConfiguration.ResourceARN, b.ko.Spec.LoggingConfiguration.ResourceARN) {
+			delta.Add("Spec.LoggingConfiguration.ResourceARN", a.ko.Spec.LoggingConfiguration.ResourceARN, b.ko.Spec.LoggingConfiguration.ResourceARN)
+		} else if a.ko.Spec.LoggingConfiguration.ResourceARN != nil && b.ko.Spec.LoggingConfiguration.ResourceARN != nil {
+			if *a.ko.Spec.LoggingConfiguration.ResourceARN != *b.ko.Spec.LoggingConfiguration.ResourceARN {
+				delta.Add("Spec.LoggingConfiguration.ResourceARN", a.ko.Spec.LoggingConfiguration.ResourceARN, b.ko.Spec.LoggingConfiguration.ResourceARN)
+			}
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Name, b.ko.Spec.Name) {
 		delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {

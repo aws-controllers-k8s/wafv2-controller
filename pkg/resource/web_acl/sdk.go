@@ -2113,6 +2113,25 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 
+	// If we have a WebACL ARN, fetch its logging configuration
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		loggingConfigInput := &svcsdk.GetLoggingConfigurationInput{
+			ResourceArn: aws.String(string(*ko.Status.ACKResourceMetadata.ARN)),
+		}
+
+		loggingConfigResp, err := rm.sdkapi.GetLoggingConfiguration(ctx, loggingConfigInput)
+		if err != nil {
+			return nil, err
+		}
+
+		if loggingConfigResp != nil && loggingConfigResp.LoggingConfiguration != nil {
+			// Populate the logging configuration fields
+			if err := setLoggingConfiguration(ko, loggingConfigResp.LoggingConfiguration); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -2206,6 +2225,16 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	rm.setStatusDefaults(ko)
+
+	// After creation, sync the logging configuration if specified
+	if ko.Spec.LoggingConfiguration != nil {
+		if err = syncLoggingConfiguration(ctx, rm, &resource{ko}, nil, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	return &resource{ko}, nil
 	return &resource{ko}, nil
 }
 
@@ -4365,6 +4394,15 @@ func (rm *resourceManager) sdkUpdate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
+
+	// Check if LoggingConfiguration fields have changed and sync if needed
+	if delta.DifferentAt("Spec.LoggingConfiguration") {
+		// Call the syncLoggingConfiguration function to update the logging configuration
+		err = syncLoggingConfiguration(ctx, rm, desired, latest, delta)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &resource{ko}, nil
 }
 

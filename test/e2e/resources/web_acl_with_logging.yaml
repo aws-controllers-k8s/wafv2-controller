@@ -1,0 +1,31 @@
+apiVersion: wafv2.services.k8s.aws/v1alpha1
+kind: WebACL
+metadata:
+  name: ${WEB_ACL_NAME}
+spec:
+  name: ${WEB_ACL_NAME}
+  description: "WAF ACL with S3 logging destinations"
+  scope: REGIONAL
+  defaultAction:
+    allow: {}
+  visibilityConfig:
+    cloudWatchMetricsEnabled: true
+    metricName: example-webacl-metric
+    sampledRequestsEnabled: true
+  loggingConfiguration:
+    logDestinationConfigs:
+      - "$S3_BUCKET_ARN"
+    logType: "WAF_LOGS"
+    redactedFields:
+      - singleHeader:
+          name: "authorization"
+      - singleHeader:
+          name: "cookie"
+    loggingFilter:
+      defaultBehavior: "KEEP"
+      filters:
+        - behavior: "KEEP"
+          requirement: "MEETS_ANY"
+          conditions:
+            - actionCondition:
+                action: "BLOCK" 

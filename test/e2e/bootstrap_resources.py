@@ -21,7 +21,7 @@ from e2e import bootstrap_directory
 
 @dataclass
 class BootstrapResources(Resources):
-    pass
+    WAFLoggingBucket: object = None
 
 _bootstrap_resources = None
 

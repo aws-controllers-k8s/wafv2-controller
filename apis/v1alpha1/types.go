@@ -122,6 +122,11 @@ type AWSManagedRulesBotControlRuleSet struct {
 	InspectionLevel       *string `json:"inspectionLevel,omitempty"`
 }
 
+// A single action condition for a Condition in a logging filter.
+type ActionCondition struct {
+	Action *string `json:"action,omitempty"`
+}
+
 // The name of a field in the request payload that contains part or all of your
 // customer's primary physical address.
 //
@@ -317,6 +322,14 @@ type ChallengeConfig struct {
 	// or challenge timestamp remains valid after WAF updates it for a successful
 	// CAPTCHA or challenge response.
 	ImmunityTimeProperty *ImmunityTimeProperty `json:"immunityTimeProperty,omitempty"`
+}
+
+// A single match condition for a Filter.
+type Condition struct {
+	// A single action condition for a Condition in a logging filter.
+	ActionCondition *ActionCondition `json:"actionCondition,omitempty"`
+	// A single label name condition for a Condition in a logging filter.
+	LabelNameCondition *LabelNameCondition `json:"labelNameCondition,omitempty"`
 }
 
 // The filter to use to identify the subset of cookies to inspect in a web request.
@@ -594,6 +607,13 @@ type FieldToMatch struct {
 	//
 	// JSON specification: "UriPath": {}
 	URIPath map[string]*string `json:"uriPath,omitempty"`
+}
+
+// A single logging filter, used in LoggingFilter.
+type Filter struct {
+	Behavior    *string      `json:"behavior,omitempty"`
+	Conditions  []*Condition `json:"conditions,omitempty"`
+	Requirement *string      `json:"requirement,omitempty"`
 }
 
 // A rule group that's defined for an Firewall Manager WAF policy.
@@ -975,8 +995,28 @@ type LabelSummary struct {
 // information (https://docs.aws.amazon.com/waf/latest/developerguide/logging.html)
 // in the WAF Developer Guide.
 type LoggingConfiguration struct {
-	ManagedByFirewallManager *bool   `json:"managedByFirewallManager,omitempty"`
-	ResourceARN              *string `json:"resourceARN,omitempty"`
+	LogDestinationConfigs []*string `json:"logDestinationConfigs,omitempty"`
+	LogScope              *string   `json:"logScope,omitempty"`
+	LogType               *string   `json:"logType,omitempty"`
+	// Filtering that specifies which web requests are kept in the logs and which
+	// are dropped, defined for a web ACL's LoggingConfiguration.
+	//
+	// You can filter on the rule action and on the web request labels that were
+	// applied by matching rules during web ACL evaluation.
+	LoggingFilter            *LoggingFilter  `json:"loggingFilter,omitempty"`
+	ManagedByFirewallManager *bool           `json:"managedByFirewallManager,omitempty"`
+	RedactedFields           []*FieldToMatch `json:"redactedFields,omitempty"`
+	ResourceARN              *string         `json:"resourceARN,omitempty"`
+}
+
+// Filtering that specifies which web requests are kept in the logs and which
+// are dropped, defined for a web ACL's LoggingConfiguration.
+//
+// You can filter on the rule action and on the web request labels that were
+// applied by matching rules during web ACL evaluation.
+type LoggingFilter struct {
+	DefaultBehavior *string   `json:"defaultBehavior,omitempty"`
+	Filters         []*Filter `json:"filters,omitempty"`
 }
 
 // The properties of a managed product, such as an Amazon Web Services Managed
