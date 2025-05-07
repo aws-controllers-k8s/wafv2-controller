@@ -27,9 +27,9 @@ from e2e.bootstrap_resources import get_bootstrap_resources
 
 WEB_ACL_RESOURCE_PLURAL = "webacls"
 
-CREATE_WAIT_SECONDS = 10
-MODIFY_WAIT_SECONDS = 10
-DELETE_WAIT_SECONDS = 10
+CREATE_WAIT_SECONDS = 30
+MODIFY_WAIT_SECONDS = 20
+DELETE_WAIT_SECONDS = 20
 
 
 @pytest.fixture(scope="module")
@@ -106,7 +106,7 @@ def web_acl_with_logging():
     
     # Get the bootstrap resources
     bootstrap_resources = get_bootstrap_resources()
-    s3_bucket_arn = bootstrap_resources.WAFLoggingBucket.bucket_arn
+    s3_bucket_arn = f"arn:aws:s3:::{bootstrap_resources.WAFLoggingBucket.name}"
 
     replacements = REPLACEMENT_VALUES.copy()
     replacements["WEB_ACL_NAME"] = web_acl_name

@@ -2,6 +2,7 @@ package web_acl
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ghodss/yaml"
 
@@ -10,8 +11,9 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcapitypes "github.com/aws-controllers-k8s/wafv2-controller/apis/v1alpha1"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+
+	svcapitypes "github.com/aws-controllers-k8s/wafv2-controller/apis/v1alpha1"
 )
 
 type Statement interface {
@@ -41,11 +43,11 @@ func stringToStatement[T Statement](cfg *string) (*T, error) {
 	return &config, nil
 }
 
-// setLoggingConfiguration populates the WebACL's logging configuration from the
+// setLoggingConfiguration populates the WebACL's logging configuration
 func setLoggingConfiguration(
 	ko *svcapitypes.WebACL,
 	loggingConfig *svcsdktypes.LoggingConfiguration,
-) error {
+) {
 	if ko.Spec.LoggingConfiguration == nil {
 		ko.Spec.LoggingConfiguration = &svcapitypes.LoggingConfiguration{}
 	}
@@ -169,8 +171,6 @@ func setLoggingConfiguration(
 
 		ko.Spec.LoggingConfiguration.RedactedFields = redactedFields
 	}
-
-	return nil
 }
 
 // syncLoggingConfiguration syncs the WebACL's logging configuration by sending a PutLoggingConfiguration request
@@ -178,7 +178,6 @@ func syncLoggingConfiguration(
 	ctx context.Context,
 	rm *resourceManager,
 	desired *resource,
-	latest *resource,
 	delta *ackcompare.Delta,
 ) error {
 	rlog := ackrtlog.FromContext(ctx)
@@ -326,11 +325,70 @@ func syncLoggingConfiguration(
 
 	// Update the resource with the response
 	if resp.LoggingConfiguration != nil {
-		err = setLoggingConfiguration(ko, resp.LoggingConfiguration)
-		if err != nil {
-			return err
-		}
+		setLoggingConfiguration(ko, resp.LoggingConfiguration)
 	}
 
+	return nil
+}
+
+// setResourceAdditionalFields is called after the ReadOne operation to set
+// additional resource fields like LockToken, Rules and LoggingConfiguration
+func (rm *resourceManager) setResourceAdditionalFields(
+	ctx context.Context,
+	ko *svcapitypes.WebACL,
+	resp *svcsdk.GetWebACLOutput,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("setResourceAdditionalFields")
+	defer func() {
+		exit(nil)
+	}()
+
+	if resp.LockToken != nil {
+		ko.Status.LockToken = resp.LockToken
+	}
+
+	if err := rm.setOutputRulesNestedStatements(ko.Spec.Rules, resp); err != nil {
+		return err
+	}
+
+	err := customSetOutputGetLoggingConfiguration(ctx, rm, ko)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// customSetOutputGetLoggingConfiguration fetches and sets the logging configuration for a WebACL.
+func customSetOutputGetLoggingConfiguration(
+	ctx context.Context,
+	rm *resourceManager,
+	ko *svcapitypes.WebACL,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	if ko.Status.ACKResourceMetadata != nil && ko.Status.ACKResourceMetadata.ARN != nil {
+		loggingConfigInput := &svcsdk.GetLoggingConfigurationInput{
+			ResourceArn: aws.String(string(*ko.Status.ACKResourceMetadata.ARN)),
+		}
+		loggingConfigResp, err := rm.sdkapi.GetLoggingConfiguration(ctx, loggingConfigInput)
+		if err != nil {
+			var nfe *svcsdktypes.WAFNonexistentItemException
+			if errors.As(err, &nfe) {
+				// WAFNonexistentItemException is not a fatal error for a read operation.
+				// It implies that Logging has not been enabled using the PutLoggingConfiguration call.
+				// We log it and proceed, loggingConfigResp will be nil in this case.
+				rlog.Info("Logging has not been enabled for the WebACL", "WebACL", *ko.Status.ACKResourceMetadata.ARN)
+			} else {
+				// For any other error, it's genuinely an issue with the GetLoggingConfiguration call.
+				return err
+			}
+		}
+
+		if loggingConfigResp != nil && loggingConfigResp.LoggingConfiguration != nil {
+			// Populate the logging configuration fields in ko.
+			setLoggingConfiguration(ko, loggingConfigResp.LoggingConfiguration)
+		}
+	}
 	return nil
 }

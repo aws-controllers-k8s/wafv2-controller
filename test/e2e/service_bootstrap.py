@@ -23,6 +23,7 @@ from e2e.bootstrap_resources import BootstrapResources
 # WAF logging S3 bucket policy that allows AWS WAF to write logs
 WAF_LOGGING_BUCKET_POLICY = """{
   "Version": "2012-10-17",
+  "Id": "AWSLogDeliveryWrite20150319",
   "Statement": [
     {
       "Sid": "AWSLogDeliveryWrite",
@@ -31,10 +32,14 @@ WAF_LOGGING_BUCKET_POLICY = """{
         "Service": "delivery.logs.amazonaws.com"
       },
       "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::$NAME/*",
+      "Resource": "arn:aws:s3:::$NAME/AWSLogs/*",
       "Condition": {
         "StringEquals": {
-          "s3:x-amz-acl": "bucket-owner-full-control"
+          "s3:x-amz-acl": "bucket-owner-full-control",
+          "aws:SourceAccount": "$ACCOUNT_ID"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:logs:$REGION:$ACCOUNT_ID:*"
         }
       }
     },
@@ -45,7 +50,15 @@ WAF_LOGGING_BUCKET_POLICY = """{
         "Service": "delivery.logs.amazonaws.com"
       },
       "Action": "s3:GetBucketAcl",
-      "Resource": "arn:aws:s3:::$NAME"
+      "Resource": "arn:aws:s3:::$NAME",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "$ACCOUNT_ID"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:logs:$REGION:$ACCOUNT_ID:*"
+        }
+      }
     }
   ]
 }"""
@@ -55,7 +68,7 @@ def service_bootstrap() -> Resources:
 
     resources = BootstrapResources(
         WAFLoggingBucket=Bucket(
-            name_prefix="aws-waf-logs-example",
+            name_prefix="aws-waf-logs-",
             policy=WAF_LOGGING_BUCKET_POLICY
         )
     )
@@ -63,6 +76,7 @@ def service_bootstrap() -> Resources:
     try:
         resources.bootstrap()
     except BootstrapFailureException as ex:
+        logging.error(f"Failed to bootstrap resources: {str(ex)}")
         exit(254)
 
     return resources
