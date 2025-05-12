@@ -75,7 +75,8 @@ type WebACLSpec struct {
 	// +kubebuilder:validation:Required
 	DefaultAction *DefaultAction `json:"defaultAction"`
 	// A description of the web ACL that helps with identification.
-	Description *string `json:"description,omitempty"`
+	Description          *string               `json:"description,omitempty"`
+	LoggingConfiguration *LoggingConfiguration `json:"loggingConfiguration,omitempty"`
 	// The name of the web ACL. You cannot change the name of a web ACL after you
 	// create it.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"

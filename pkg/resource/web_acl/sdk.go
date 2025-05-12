@@ -2106,11 +2106,8 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-	if resp.LockToken != nil {
-		ko.Status.LockToken = resp.LockToken
-	}
-	if err := rm.setOutputRulesNestedStatements(ko.Spec.Rules, resp); err != nil {
-		return nil, err
+	if err := rm.setResourceAdditionalFields(ctx, ko, resp); err != nil {
+		return &resource{ko}, err
 	}
 
 	return &resource{ko}, nil
@@ -2206,6 +2203,13 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	// After creation, sync the logging configuration if specified
+	if ko.Spec.LoggingConfiguration != nil {
+		if err = syncLoggingConfiguration(ctx, rm, &resource{ko}, nil); err != nil {
+			return nil, err
+		}
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -4351,6 +4355,16 @@ func (rm *resourceManager) sdkUpdate(
 	}
 	if err := rm.setInputRulesNestedStatements(input.Rules, desired); err != nil {
 		return nil, err
+	}
+	if delta.DifferentAt("Spec.LoggingConfiguration") {
+		// Call the syncLoggingConfiguration function to update the logging configuration
+		err = syncLoggingConfiguration(ctx, rm, desired, delta)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentExcept("Spec.LoggingConfiguration") {
+		return
 	}
 
 	var resp *svcsdk.UpdateWebACLOutput

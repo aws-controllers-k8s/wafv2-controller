@@ -1,7 +1,3 @@
-	if resp.LockToken != nil {
- 		ko.Status.LockToken = resp.LockToken
- 	}
-	if err := rm.setOutputRulesNestedStatements(ko.Spec.Rules, resp); err != nil {
-		return nil, err
+ 	if err := rm.setResourceAdditionalFields(ctx, ko, resp); err != nil {
+		return &resource{ko}, err
 	}
-    
