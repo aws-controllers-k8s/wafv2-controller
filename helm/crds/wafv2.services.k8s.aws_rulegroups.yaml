@@ -94,12 +94,17 @@ spec:
                   in the WAF Developer Guide.
                 type: object
               description:
-                description: A description of the rule group that helps with identification.
+                description: |-
+                  A description of the rule group that helps with identification.
+
+                  Regex Pattern: `^[\w+=:#@/\-,\.][\w+=:#@/\-,\.\s]+[\w+=:#@/\-,\.]$`
                 type: string
               name:
                 description: |-
                   The name of the rule group. You cannot change the name of a rule group after
                   you create it.
+
+                  Regex Pattern: `^[\w\-]+$`
                 type: string
                 x-kubernetes-validations:
                 - message: Value is immutable once set
@@ -3840,6 +3845,8 @@ spec:
                   A unique identifier for the rule group. This ID is returned in the responses
                   to create and list commands. You provide it to operations like update and
                   delete.
+
+                  Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
                 type: string
               lockToken:
                 description: |-
@@ -3851,6 +3858,8 @@ spec:
                   If a change has been made, the update fails with a WAFOptimisticLockException.
                   If this happens, perform another get, and use the new token returned by that
                   operation.
+
+                  Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
                 type: string
             type: object
         type: object

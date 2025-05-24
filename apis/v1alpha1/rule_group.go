@@ -61,9 +61,13 @@ type RuleGroupSpec struct {
 	// in the WAF Developer Guide.
 	CustomResponseBodies map[string]*CustomResponseBody `json:"customResponseBodies,omitempty"`
 	// A description of the rule group that helps with identification.
+	//
+	// Regex Pattern: `^[\w+=:#@/\-,\.][\w+=:#@/\-,\.\s]+[\w+=:#@/\-,\.]$`
 	Description *string `json:"description,omitempty"`
 	// The name of the rule group. You cannot change the name of a rule group after
 	// you create it.
+	//
+	// Regex Pattern: `^[\w\-]+$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
@@ -110,6 +114,8 @@ type RuleGroupStatus struct {
 	// A unique identifier for the rule group. This ID is returned in the responses
 	// to create and list commands. You provide it to operations like update and
 	// delete.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	ID *string `json:"id,omitempty"`
 	// A token used for optimistic locking. WAF returns a token to your get and
@@ -120,6 +126,8 @@ type RuleGroupStatus struct {
 	// If a change has been made, the update fails with a WAFOptimisticLockException.
 	// If this happens, perform another get, and use the new token returned by that
 	// operation.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	LockToken *string `json:"lockToken,omitempty"`
 }

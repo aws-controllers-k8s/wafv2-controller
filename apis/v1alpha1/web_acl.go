@@ -75,10 +75,14 @@ type WebACLSpec struct {
 	// +kubebuilder:validation:Required
 	DefaultAction *DefaultAction `json:"defaultAction"`
 	// A description of the web ACL that helps with identification.
+	//
+	// Regex Pattern: `^[\w+=:#@/\-,\.][\w+=:#@/\-,\.\s]+[\w+=:#@/\-,\.]$`
 	Description          *string               `json:"description,omitempty"`
 	LoggingConfiguration *LoggingConfiguration `json:"loggingConfiguration,omitempty"`
 	// The name of the web ACL. You cannot change the name of a web ACL after you
 	// create it.
+	//
+	// Regex Pattern: `^[\w\-]+$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
@@ -138,6 +142,8 @@ type WebACLStatus struct {
 	// The unique identifier for the web ACL. This ID is returned in the responses
 	// to create and list commands. You provide it to operations like update and
 	// delete.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	ID *string `json:"id,omitempty"`
 	// A token used for optimistic locking. WAF returns a token to your get and
@@ -148,6 +154,8 @@ type WebACLStatus struct {
 	// If a change has been made, the update fails with a WAFOptimisticLockException.
 	// If this happens, perform another get, and use the new token returned by that
 	// operation.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	LockToken *string `json:"lockToken,omitempty"`
 }

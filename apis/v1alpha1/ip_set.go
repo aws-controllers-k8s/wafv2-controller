@@ -67,12 +67,16 @@ type IPSetSpec struct {
 	// +kubebuilder:validation:Required
 	Addresses []*string `json:"addresses"`
 	// A description of the IP set that helps with identification.
+	//
+	// Regex Pattern: `^[\w+=:#@/\-,\.][\w+=:#@/\-,\.\s]+[\w+=:#@/\-,\.]$`
 	Description *string `json:"description,omitempty"`
 	// The version of the IP addresses, either IPV4 or IPV6.
 	// +kubebuilder:validation:Required
 	IPAddressVersion *string `json:"ipAddressVersion"`
 	// The name of the IP set. You cannot change the name of an IPSet after you
 	// create it.
+	//
+	// Regex Pattern: `^[\w\-]+$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable once set"
 	// +kubebuilder:validation:Required
 	Name *string `json:"name"`
@@ -111,6 +115,8 @@ type IPSetStatus struct {
 	Conditions []*ackv1alpha1.Condition `json:"conditions"`
 	// A unique identifier for the set. This ID is returned in the responses to
 	// create and list commands. You provide it to operations like update and delete.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	ID *string `json:"id,omitempty"`
 	// A token used for optimistic locking. WAF returns a token to your get and
@@ -121,6 +127,8 @@ type IPSetStatus struct {
 	// If a change has been made, the update fails with a WAFOptimisticLockException.
 	// If this happens, perform another get, and use the new token returned by that
 	// operation.
+	//
+	// Regex Pattern: `^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$`
 	// +kubebuilder:validation:Optional
 	LockToken *string `json:"lockToken,omitempty"`
 }
