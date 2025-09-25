@@ -159,7 +159,7 @@ class TestWebACL:
         ref, _ = simple_web_acl
 
         time.sleep(CREATE_WAIT_SECONDS)
-        condition.assert_synced(ref)
+        condition.assert_ready(ref)
 
         cr = k8s.get_resource(ref)
 
@@ -209,7 +209,7 @@ class TestWebACL:
         ref, _ = nested_statement_web_acl
 
         time.sleep(CREATE_WAIT_SECONDS)
-        condition.assert_synced(ref)
+        condition.assert_ready(ref)
 
         cr = k8s.get_resource(ref)
 
@@ -245,7 +245,7 @@ class TestWebACL:
         ref, _ = web_acl_with_logging
 
         time.sleep(CREATE_WAIT_SECONDS)
-        condition.assert_synced(ref)
+        condition.assert_ready(ref)
 
         cr = k8s.get_resource(ref)
 
