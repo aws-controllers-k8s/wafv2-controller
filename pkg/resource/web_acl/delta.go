@@ -17,16 +17,15 @@ package web_acl
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -49,7 +48,7 @@ func newResourceDelta(
 		if len(a.ko.Spec.AssociationConfig.RequestBody) != len(b.ko.Spec.AssociationConfig.RequestBody) {
 			delta.Add("Spec.AssociationConfig.RequestBody", a.ko.Spec.AssociationConfig.RequestBody, b.ko.Spec.AssociationConfig.RequestBody)
 		} else if len(a.ko.Spec.AssociationConfig.RequestBody) > 0 {
-			if !reflect.DeepEqual(a.ko.Spec.AssociationConfig.RequestBody, b.ko.Spec.AssociationConfig.RequestBody) {
+			if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.AssociationConfig.RequestBody, b.ko.Spec.AssociationConfig.RequestBody) {
 				delta.Add("Spec.AssociationConfig.RequestBody", a.ko.Spec.AssociationConfig.RequestBody, b.ko.Spec.AssociationConfig.RequestBody)
 			}
 		}
@@ -87,7 +86,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.CustomResponseBodies) != len(b.ko.Spec.CustomResponseBodies) {
 		delta.Add("Spec.CustomResponseBodies", a.ko.Spec.CustomResponseBodies, b.ko.Spec.CustomResponseBodies)
 	} else if len(a.ko.Spec.CustomResponseBodies) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.CustomResponseBodies, b.ko.Spec.CustomResponseBodies) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.CustomResponseBodies, b.ko.Spec.CustomResponseBodies) {
 			delta.Add("Spec.CustomResponseBodies", a.ko.Spec.CustomResponseBodies, b.ko.Spec.CustomResponseBodies)
 		}
 	}
@@ -103,7 +102,7 @@ func newResourceDelta(
 				if len(a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders) != len(b.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders) {
 					delta.Add("Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders", a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders, b.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders)
 				} else if len(a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders) > 0 {
-					if !reflect.DeepEqual(a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders, b.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders) {
+					if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders, b.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders) {
 						delta.Add("Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders", a.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders, b.ko.Spec.DefaultAction.Allow.CustomRequestHandling.InsertHeaders)
 					}
 				}
@@ -132,7 +131,7 @@ func newResourceDelta(
 				if len(a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders) != len(b.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders) {
 					delta.Add("Spec.DefaultAction.Block.CustomResponse.ResponseHeaders", a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders, b.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders)
 				} else if len(a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders) > 0 {
-					if !reflect.DeepEqual(a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders, b.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders) {
+					if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders, b.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders) {
 						delta.Add("Spec.DefaultAction.Block.CustomResponse.ResponseHeaders", a.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders, b.ko.Spec.DefaultAction.Block.CustomResponse.ResponseHeaders)
 					}
 				}
@@ -183,7 +182,7 @@ func newResourceDelta(
 			if len(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) != len(b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) {
 				delta.Add("Spec.LoggingConfiguration.LoggingFilter.Filters", a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters)
 			} else if len(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters) {
 					delta.Add("Spec.LoggingConfiguration.LoggingFilter.Filters", a.ko.Spec.LoggingConfiguration.LoggingFilter.Filters, b.ko.Spec.LoggingConfiguration.LoggingFilter.Filters)
 				}
 			}
@@ -198,7 +197,7 @@ func newResourceDelta(
 		if len(a.ko.Spec.LoggingConfiguration.RedactedFields) != len(b.ko.Spec.LoggingConfiguration.RedactedFields) {
 			delta.Add("Spec.LoggingConfiguration.RedactedFields", a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields)
 		} else if len(a.ko.Spec.LoggingConfiguration.RedactedFields) > 0 {
-			if !reflect.DeepEqual(a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields) {
+			if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields) {
 				delta.Add("Spec.LoggingConfiguration.RedactedFields", a.ko.Spec.LoggingConfiguration.RedactedFields, b.ko.Spec.LoggingConfiguration.RedactedFields)
 			}
 		}
@@ -220,7 +219,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.Rules) != len(b.ko.Spec.Rules) {
 		delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
 	} else if len(a.ko.Spec.Rules) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Rules, b.ko.Spec.Rules) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Rules, b.ko.Spec.Rules) {
 			delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
 		}
 	}
