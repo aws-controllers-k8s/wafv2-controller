@@ -16,7 +16,6 @@ ignore:
     - WebACL.Rules.Statement.NotStatement
     - WebACL.Rules.Statement.ManagedRuleGroupStatement.ScopeDownStatement
     - WebACL.Rules.Statement.RateBasedStatement.ScopeDownStatement
-model_name: wafv2
 empty_shapes:
   - All
   - Method
