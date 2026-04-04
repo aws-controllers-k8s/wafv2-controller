@@ -4062,6 +4062,16 @@ func (in *WebACLStatus) DeepCopyInto(out *WebACLStatus) {
 			}
 		}
 	}
+	if in.ApplicationIntegrationURL != nil {
+		in, out := &in.ApplicationIntegrationURL, &out.ApplicationIntegrationURL
+		*out = new(string)
+		**out = **in
+	}
+	if in.Capacity != nil {
+		in, out := &in.Capacity, &out.Capacity
+		*out = new(int64)
+		**out = **in
+	}
 	if in.ID != nil {
 		in, out := &in.ID, &out.ID
 		*out = new(string)

@@ -122,6 +122,7 @@ func (rm *resourceManager) sdkFind(
 	} else {
 		ko.Spec.AssociationConfig = nil
 	}
+	ko.Status.Capacity = &resp.WebACL.Capacity
 	if resp.WebACL.CaptchaConfig != nil {
 		f3 := &svcapitypes.CaptchaConfig{}
 		if resp.WebACL.CaptchaConfig.ImmunityTimeProperty != nil {

@@ -171,8 +171,16 @@ class TestWebACL:
         assert "id" in cr["status"]
         web_acl_id = cr["status"]["id"]
 
-        latest = web_acl.get(web_acl_name, web_acl_id)
-        assert latest is not None
+        # Verify capacity and applicationIntegrationURL match AWS
+        aws_resp = web_acl.get(web_acl_name, web_acl_id)
+        assert aws_resp is not None
+        assert "capacity" in cr["status"]
+        assert cr["status"]["capacity"] == aws_resp["WebACL"]["Capacity"]
+        if "ApplicationIntegrationURL" in aws_resp:
+            assert "applicationIntegrationURL" in cr["status"]
+            assert cr["status"]["applicationIntegrationURL"] == aws_resp["ApplicationIntegrationURL"]
+
+        latest = aws_resp["WebACL"]
         assert "Rules" in latest
         assert "Description" in latest
         rules = latest["Rules"]
@@ -190,7 +198,7 @@ class TestWebACL:
         k8s.patch_custom_resource(ref, updates)
         time.sleep(MODIFY_WAIT_SECONDS)
 
-        latest = web_acl.get(web_acl_name, web_acl_id)
+        latest = web_acl.get_web_acl(web_acl_name, web_acl_id)
         assert latest is not None
         assert "Rules" in latest
         assert "Description" in latest
@@ -221,7 +229,7 @@ class TestWebACL:
         assert "id" in cr["status"]
         web_acl_id = cr["status"]["id"]
 
-        latest = web_acl.get(web_acl_name, web_acl_id)
+        latest = web_acl.get_web_acl(web_acl_name, web_acl_id)
         assert latest is not None
         assert "Rules" in latest
         rules = latest["Rules"]
@@ -257,7 +265,7 @@ class TestWebACL:
         assert "id" in cr["status"]
         web_acl_id = cr["status"]["id"]
 
-        latest = web_acl.get(web_acl_name, web_acl_id)
+        latest = web_acl.get_web_acl(web_acl_name, web_acl_id)
         assert latest is not None
         
         # Check logging configuration is present

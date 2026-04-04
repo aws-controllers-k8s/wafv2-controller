@@ -42,7 +42,7 @@ def wait_until_deleted(
             pytest.fail("Timed out waiting for WebACL to be " "deleted in WAFv2 API")
         time.sleep(interval_seconds)
 
-        latest = get(name, id)
+        latest = get_web_acl(name, id)
         if latest is None:
             break
 
@@ -52,9 +52,22 @@ def get(
     id: str,
     scope: str = "REGIONAL",
 ):
+    """Returns the full GetWebACL response including top-level fields
+    like ApplicationIntegrationURL."""
     c = boto3.client("wafv2")
     try:
-        resp = c.get_web_acl(Name=name, Id=id, Scope=scope)
-        return resp["WebACL"]
+        return c.get_web_acl(Name=name, Id=id, Scope=scope)
     except c.exceptions.WAFNonexistentItemException:
         return None
+
+
+def get_web_acl(
+    name: str,
+    id: str,
+    scope: str = "REGIONAL",
+):
+    """Returns just the WebACL object from the GetWebACL response."""
+    resp = get(name, id, scope)
+    if resp is None:
+        return None
+    return resp["WebACL"]
