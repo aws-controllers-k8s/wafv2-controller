@@ -347,6 +347,9 @@ func (rm *resourceManager) setResourceAdditionalFields(
 	if resp.LockToken != nil {
 		ko.Status.LockToken = resp.LockToken
 	}
+	if resp.ApplicationIntegrationURL != nil {
+		ko.Status.ApplicationIntegrationURL = resp.ApplicationIntegrationURL
+	}
 
 	if err := rm.setOutputRulesNestedStatements(ko.Spec.Rules, resp); err != nil {
 		return err

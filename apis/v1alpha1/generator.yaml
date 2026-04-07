@@ -89,6 +89,16 @@ resources:
         template_path: hooks/common/sdk_file_end.go.tpl
   WebACL:
     fields:
+      Capacity:
+        is_read_only: true
+        from:
+          operation: GetWebACL
+          path: WebACL.Capacity
+      ApplicationIntegrationURL:
+        is_read_only: true
+        from:
+          operation: GetWebACL
+          path: ApplicationIntegrationURL
       Name:
         is_primary_key: true
         is_immutable: true

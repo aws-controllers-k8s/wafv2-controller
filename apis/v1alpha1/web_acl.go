@@ -139,6 +139,28 @@ type WebACLStatus struct {
 	// resource
 	// +kubebuilder:validation:Optional
 	Conditions []*ackv1alpha1.Condition `json:"conditions"`
+	// The URL to use in SDK integrations with Amazon Web Services managed rule
+	// groups. For example, you can use the integration SDKs with the account takeover
+	// prevention managed rule group AWSManagedRulesATPRuleSet and the account creation
+	// fraud prevention managed rule group AWSManagedRulesACFPRuleSet. This is only
+	// populated if you are using a rule group in your web ACL that integrates with
+	// your applications in this way. For more information, see WAF client application
+	// integration (https://docs.aws.amazon.com/waf/latest/developerguide/waf-application-integration.html)
+	// in the WAF Developer Guide.
+	// +kubebuilder:validation:Optional
+	ApplicationIntegrationURL *string `json:"applicationIntegrationURL,omitempty"`
+	// The web ACL capacity units (WCUs) currently being used by this web ACL.
+	//
+	// WAF uses WCUs to calculate and control the operating resources that are used
+	// to run your rules, rule groups, and web ACLs. WAF calculates capacity differently
+	// for each rule type, to reflect the relative cost of each rule. Simple rules
+	// that cost little to run use fewer WCUs than more complex rules that use more
+	// processing power. Rule group capacity is fixed at creation, which helps users
+	// plan their web ACL WCU usage when they use a rule group. For more information,
+	// see WAF web ACL capacity units (WCU) (https://docs.aws.amazon.com/waf/latest/developerguide/aws-waf-capacity-units.html)
+	// in the WAF Developer Guide.
+	// +kubebuilder:validation:Optional
+	Capacity *int64 `json:"capacity,omitempty"`
 	// The unique identifier for the web ACL. This ID is returned in the responses
 	// to create and list commands. You provide it to operations like update and
 	// delete.
