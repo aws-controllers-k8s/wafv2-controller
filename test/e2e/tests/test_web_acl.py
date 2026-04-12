@@ -208,6 +208,11 @@ class TestWebACL:
         assert rules[0]["Name"] == "rule-3"
         assert description == "updated description"
 
+        # Verify capacity in ACK status matches AWS after update
+        cr = k8s.get_resource(ref)
+        assert "capacity" in cr["status"]
+        assert cr["status"]["capacity"] == latest["Capacity"]
+
         # delete the CR
         _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
         assert deleted
