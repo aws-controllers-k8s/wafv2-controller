@@ -1,0 +1,1 @@
+	return &resource{ko}, updateRqueue

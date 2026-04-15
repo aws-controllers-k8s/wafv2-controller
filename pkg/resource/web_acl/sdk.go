@@ -4380,6 +4380,8 @@ func (rm *resourceManager) sdkUpdate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
+	return &resource{ko}, updateRqueue
+
 	return &resource{ko}, nil
 }
 
