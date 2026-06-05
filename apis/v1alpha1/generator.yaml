@@ -35,6 +35,10 @@ operations:
     output_wrapper_field_path: WebACL
 resources:
   IPSet:
+    exceptions:
+      errors:
+        404:
+          code: WAFNonexistentItemException
     fields:
       Name:
         is_primary_key: true
@@ -48,6 +52,10 @@ resources:
       sdk_read_one_post_set_output:
         template_path: hooks/ipset/sdk_read_one_post_set_output.go.tpl
   RuleGroup:
+    exceptions:
+      errors:
+        404:
+          code: WAFNonexistentItemException
     fields:
       Name:
         is_primary_key: true
@@ -88,6 +96,10 @@ resources:
       sdk_file_end:
         template_path: hooks/common/sdk_file_end.go.tpl
   WebACL:
+    exceptions:
+      errors:
+        404:
+          code: WAFNonexistentItemException
     fields:
       Capacity:
         is_read_only: true
