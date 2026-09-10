@@ -41,6 +41,8 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	a = canonicalizeRulesNestedStatements(a)
+	b = canonicalizeRulesNestedStatements(b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.Capacity, b.ko.Spec.Capacity) {
 		delta.Add("Spec.Capacity", a.ko.Spec.Capacity, b.ko.Spec.Capacity)

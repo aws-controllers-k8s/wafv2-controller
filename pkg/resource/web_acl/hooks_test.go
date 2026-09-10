@@ -18,9 +18,120 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
 
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
+
+	svcapitypes "github.com/aws-controllers-k8s/wafv2-controller/apis/v1alpha1"
 )
+
+// webACLWithAndStatement builds a WebACL carrying a single rule whose statement
+// is the supplied serialized AndStatement.
+func webACLWithAndStatement(andStatement *string) *resource {
+	return &resource{ko: &svcapitypes.WebACL{
+		Spec: svcapitypes.WebACLSpec{
+			Name: aws.String("my-acl"),
+			Rules: []*svcapitypes.Rule{
+				{
+					Name:     aws.String("rule-1"),
+					Priority: aws.Int64(1),
+					Statement: &svcapitypes.Statement{
+						AndStatement: andStatement,
+					},
+				},
+			},
+		},
+	}}
+}
+
+// sdkRenderedAndStatement returns the AndStatement rendering the ReadOne path
+// writes back into the spec, for the supplied country codes.
+func sdkRenderedAndStatement(t *testing.T, codes ...string) *string {
+	t.Helper()
+	countryCodes := make([]svcsdktypes.CountryCode, 0, len(codes))
+	for _, c := range codes {
+		countryCodes = append(countryCodes, svcsdktypes.CountryCode(c))
+	}
+	rendered, err := statementToString(&svcsdktypes.AndStatement{
+		Statements: []svcsdktypes.Statement{
+			{
+				GeoMatchStatement: &svcsdktypes.GeoMatchStatement{
+					CountryCodes: countryCodes,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("rendering AndStatement: %v", err)
+	}
+	return rendered
+}
+
+// The authored form users write, as in test/e2e/resources/web_acl_nested_statement.yaml.
+const authoredAndStatement = `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+`
+
+func TestNewResourceDeltaNestedStatements(t *testing.T) {
+	t.Run("authored and observed renderings of the same statement match", func(t *testing.T) {
+		desired := webACLWithAndStatement(aws.String(authoredAndStatement))
+		latest := webACLWithAndStatement(sdkRenderedAndStatement(t, "US", "CA"))
+
+		delta := newResourceDelta(desired, latest)
+
+		if delta.DifferentAt("Spec.Rules") {
+			t.Errorf("expected no Spec.Rules delta, got %v", delta.Differences)
+		}
+	})
+
+	t.Run("a genuinely different statement is still detected", func(t *testing.T) {
+		desired := webACLWithAndStatement(aws.String(authoredAndStatement))
+		latest := webACLWithAndStatement(sdkRenderedAndStatement(t, "US", "MX"))
+
+		delta := newResourceDelta(desired, latest)
+
+		if !delta.DifferentAt("Spec.Rules") {
+			t.Error("expected a Spec.Rules delta for differing country codes")
+		}
+	})
+
+	t.Run("unparseable statements fall back to string comparison", func(t *testing.T) {
+		garbage := aws.String("not a statement")
+
+		if delta := newResourceDelta(
+			webACLWithAndStatement(garbage),
+			webACLWithAndStatement(garbage),
+		); delta.DifferentAt("Spec.Rules") {
+			t.Error("expected identical unparseable statements to compare equal")
+		}
+
+		if delta := newResourceDelta(
+			webACLWithAndStatement(garbage),
+			webACLWithAndStatement(aws.String("also not a statement")),
+		); !delta.DifferentAt("Spec.Rules") {
+			t.Error("expected differing unparseable statements to compare unequal")
+		}
+	})
+
+	t.Run("comparison does not mutate its inputs", func(t *testing.T) {
+		desired := webACLWithAndStatement(aws.String(authoredAndStatement))
+		latest := webACLWithAndStatement(sdkRenderedAndStatement(t, "US", "CA"))
+		desiredBefore := *desired.ko.Spec.Rules[0].Statement.AndStatement
+		latestBefore := *latest.ko.Spec.Rules[0].Statement.AndStatement
+
+		newResourceDelta(desired, latest)
+
+		if got := *desired.ko.Spec.Rules[0].Statement.AndStatement; got != desiredBefore {
+			t.Errorf("desired was rewritten to %q", got)
+		}
+		if got := *latest.ko.Spec.Rules[0].Statement.AndStatement; got != latestBefore {
+			t.Errorf("latest was rewritten to %q", got)
+		}
+	})
+}
 
 func TestValidateLoggingResourceARN(t *testing.T) {
 	const webACLARN = "arn:aws:wafv2:us-west-2:111122223333:regional/webacl/my-acl/abc-123"

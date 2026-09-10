@@ -33,3 +33,51 @@ func stringToStatement[T Statement](cfg *string) (*T, error) {
 
 	return &config, nil
 }
+
+// canonicalizeNestedStatement round-trips a nested statement through its SDK
+// shape so that two equivalent renderings of the same statement produce the same
+// string. Input that does not parse is returned unchanged, which leaves plain
+// string comparison in place for it.
+func canonicalizeNestedStatement[T Statement](s *string) *string {
+	if s == nil || *s == "" {
+		return s
+	}
+	parsed, err := stringToStatement[T](s)
+	if err != nil {
+		return s
+	}
+	canonical, err := statementToString(parsed)
+	if err != nil {
+		return s
+	}
+	return canonical
+}
+
+// canonicalizeRulesNestedStatements returns a deep copy of r whose nested
+// statement strings are canonical. It copies rather than mutating because the
+// desired resource is passed here, and rewriting its spec would persist the
+// canonical rendering over what the user authored.
+func canonicalizeRulesNestedStatements(r *resource) *resource {
+	if r == nil || r.ko == nil || len(r.ko.Spec.Rules) == 0 {
+		return r
+	}
+	ko := r.ko.DeepCopy()
+	for _, rule := range ko.Spec.Rules {
+		if rule == nil || rule.Statement == nil {
+			continue
+		}
+		s := rule.Statement
+		s.AndStatement = canonicalizeNestedStatement[svcsdktypes.AndStatement](s.AndStatement)
+		s.OrStatement = canonicalizeNestedStatement[svcsdktypes.OrStatement](s.OrStatement)
+		s.NotStatement = canonicalizeNestedStatement[svcsdktypes.NotStatement](s.NotStatement)
+		if s.ManagedRuleGroupStatement != nil {
+			s.ManagedRuleGroupStatement.ScopeDownStatement =
+				canonicalizeNestedStatement[svcsdktypes.Statement](s.ManagedRuleGroupStatement.ScopeDownStatement)
+		}
+		if s.RateBasedStatement != nil {
+			s.RateBasedStatement.ScopeDownStatement =
+				canonicalizeNestedStatement[svcsdktypes.Statement](s.RateBasedStatement.ScopeDownStatement)
+		}
+	}
+	return &resource{ko}
+}
