@@ -84,11 +84,10 @@ type RuleGroupSpec struct {
 	// To work with CloudFront, you must also specify the Region US East (N. Virginia)
 	// as follows:
 	//
-	//   - CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
-	//     --region=us-east-1.
+	//    * CLI - Specify the Region when you use the CloudFront scope: --scope=CLOUDFRONT
+	//    --region=us-east-1.
 	//
-	//   - API and SDKs - For all calls, use the Region endpoint us-east-1.
-	//
+	//    * API and SDKs - For all calls, use the Region endpoint us-east-1.
 	// +kubebuilder:validation:Required
 	Scope *string `json:"scope"`
 	// An array of key:value pairs to associate with the resource.
