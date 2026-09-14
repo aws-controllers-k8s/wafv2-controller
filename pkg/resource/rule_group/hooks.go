@@ -3,8 +3,8 @@ package rule_group
 import (
 	"github.com/ghodss/yaml"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 type Statement interface {
