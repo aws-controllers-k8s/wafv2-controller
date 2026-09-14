@@ -72,7 +72,7 @@ def nested_statement_rule_group():
     replacements["RULE_GROUP_NAME"] = rule_group_name
 
     resource_data = load_wafv2_resource(
-        "rule_group_nested_statement",
+        "rule_group_nested_statements",
         additional_replacements=replacements,
     )
 
