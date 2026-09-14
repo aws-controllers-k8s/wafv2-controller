@@ -116,6 +116,28 @@ func TestNewResourceDeltaNestedStatements(t *testing.T) {
 		}
 	})
 
+	t.Run("an unknown nested key stays a visible delta", func(t *testing.T) {
+		// Identical to the authored statement except for a key the SDK does not
+		// define. Dropping it silently would make this compare equal to the
+		// observed form, so the resource would report Synced while the requested
+		// change was never applied.
+		withUnknownKey := `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+      notARealField: oops
+`
+		desired := webACLWithAndStatement(aws.String(withUnknownKey))
+		latest := webACLWithAndStatement(sdkRenderedAndStatement(t, "US", "CA"))
+
+		delta := newResourceDelta(desired, latest)
+
+		if !delta.DifferentAt("Spec.Rules") {
+			t.Error("expected an unknown nested key to remain a visible delta")
+		}
+	})
+
 	t.Run("comparison does not mutate its inputs", func(t *testing.T) {
 		desired := webACLWithAndStatement(aws.String(authoredAndStatement))
 		latest := webACLWithAndStatement(sdkRenderedAndStatement(t, "US", "CA"))

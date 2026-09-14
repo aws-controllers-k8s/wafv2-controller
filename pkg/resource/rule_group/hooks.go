@@ -1,6 +1,9 @@
 package rule_group
 
 import (
+	"bytes"
+	"encoding/json"
+
 	"github.com/ghodss/yaml"
 
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
@@ -34,15 +37,32 @@ func stringToStatement[T Statement](cfg *string) (*T, error) {
 	return &config, nil
 }
 
+// strictStatement decodes a nested statement and rejects unknown fields, so a
+// misspelled or unsupported key is reported rather than silently dropped.
+func strictStatement[T Statement](s *string) (*T, error) {
+	jsonBytes, err := yaml.YAMLToJSON([]byte(*s))
+	if err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(jsonBytes))
+	dec.DisallowUnknownFields()
+
+	var config T
+	if err := dec.Decode(&config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
 // canonicalizeNestedStatement round-trips a nested statement through its SDK
 // shape so that two equivalent renderings of the same statement produce the same
-// string. Input that does not parse is returned unchanged, which leaves plain
-// string comparison in place for it.
+// string. Input that does not decode cleanly is returned unchanged, which leaves
+// plain string comparison in place so unsupported fields stay a visible delta.
 func canonicalizeNestedStatement[T Statement](s *string) *string {
 	if s == nil || *s == "" {
 		return s
 	}
-	parsed, err := stringToStatement[T](s)
+	parsed, err := strictStatement[T](s)
 	if err != nil {
 		return s
 	}
