@@ -218,7 +218,7 @@ class TestWebACL:
         assert deleted
         web_acl.wait_until_deleted(web_acl_name, web_acl_id)
 
-    def nested_statement(self, nested_statement_web_acl):
+    def test_nested_statement(self, nested_statement_web_acl):
         ref, _ = nested_statement_web_acl
 
         time.sleep(CREATE_WAIT_SECONDS)
@@ -248,6 +248,14 @@ class TestWebACL:
         assert "GeoMatchStatement" in statements[0]
         assert "NotStatement" in statements[1]
         assert "ByteMatchStatement" in statements[1]["NotStatement"]["Statement"]
+
+        # The nested statement must round-trip through the delta, otherwise the
+        # controller updates the WebACL on every reconcile. LockToken rotates on
+        # each UpdateWebACL, so an unchanged token means no update was issued.
+        lock_token = k8s.get_resource(ref)["status"]["lockToken"]
+        time.sleep(MODIFY_WAIT_SECONDS)
+        condition.assert_synced(ref)
+        assert k8s.get_resource(ref)["status"]["lockToken"] == lock_token
 
         # delete the CR
         _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
