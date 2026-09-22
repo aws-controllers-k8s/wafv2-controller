@@ -15,6 +15,7 @@ package web_acl
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -63,6 +64,80 @@ func sdkRenderedAndStatement(t *testing.T, codes ...string) *string {
 	})
 	if err != nil {
 		t.Fatalf("rendering AndStatement: %v", err)
+	}
+	return rendered
+}
+
+// webACLWithScopeDown builds a WebACL whose single rule carries a rate-based
+// statement with the supplied serialized scope-down statement.
+func webACLWithScopeDown(scopeDown *string) *resource {
+	return &resource{ko: &svcapitypes.WebACL{
+		Spec: svcapitypes.WebACLSpec{
+			Name: aws.String("my-acl"),
+			Rules: []*svcapitypes.Rule{
+				{
+					Name:     aws.String("rule-1"),
+					Priority: aws.Int64(1),
+					Statement: &svcapitypes.Statement{
+						RateBasedStatement: &svcapitypes.RateBasedStatement{
+							ScopeDownStatement: scopeDown,
+						},
+					},
+				},
+			},
+		},
+	}}
+}
+
+// webACLWithAndStatements builds a WebACL with one rule per supplied AndStatement.
+func webACLWithAndStatements(andStatements ...*string) *resource {
+	rules := make([]*svcapitypes.Rule, 0, len(andStatements))
+	for i, s := range andStatements {
+		rules = append(rules, &svcapitypes.Rule{
+			Name:      aws.String(fmt.Sprintf("rule-%d", i+1)),
+			Priority:  aws.Int64(int64(i + 1)),
+			Statement: &svcapitypes.Statement{AndStatement: s},
+		})
+	}
+	return &resource{ko: &svcapitypes.WebACL{
+		Spec: svcapitypes.WebACLSpec{Name: aws.String("my-acl"), Rules: rules},
+	}}
+}
+
+// fixtureAndStatement renders the e2e fixture's AndStatement as GetWebACL
+// returns it, with the byte-match header name supplied by the caller so a test
+// can model WAF's server-side lowercasing.
+func fixtureAndStatement(t *testing.T, headerName string) *string {
+	t.Helper()
+	rendered, err := statementToString(&svcsdktypes.AndStatement{
+		Statements: []svcsdktypes.Statement{
+			{
+				GeoMatchStatement: &svcsdktypes.GeoMatchStatement{
+					CountryCodes: []svcsdktypes.CountryCode{"US", "CA"},
+				},
+			},
+			{
+				NotStatement: &svcsdktypes.NotStatement{
+					Statement: &svcsdktypes.Statement{
+						ByteMatchStatement: &svcsdktypes.ByteMatchStatement{
+							FieldToMatch: &svcsdktypes.FieldToMatch{
+								SingleHeader: &svcsdktypes.SingleHeader{
+									Name: aws.String(headerName),
+								},
+							},
+							PositionalConstraint: svcsdktypes.PositionalConstraintExactly,
+							SearchString:         []byte("something"),
+							TextTransformations: []svcsdktypes.TextTransformation{
+								{Type: svcsdktypes.TextTransformationTypeNone, Priority: 0},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("rendering fixture AndStatement: %v", err)
 	}
 	return rendered
 }
@@ -135,6 +210,133 @@ func TestNewResourceDeltaNestedStatements(t *testing.T) {
 
 		if !delta.DifferentAt("Spec.Rules") {
 			t.Error("expected an unknown nested key to remain a visible delta")
+		}
+	})
+
+	t.Run("a header name WAF lowercased server-side is not a delta", func(t *testing.T) {
+		// The repository's own nested-statement fixture, whose byte-match inspects
+		// singleHeader "Referer". WAF stores header names lowercased, so GetWebACL
+		// returns "referer" and only a value normalisation can reconcile the two.
+		authored := `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+  - notStatement:
+      statement:
+        byteMatchStatement:
+          fieldToMatch:
+            singleHeader:
+              name: Referer
+          positionalConstraint: EXACTLY
+          searchString: c29tZXRoaW5n
+          textTransformations:
+            - type: NONE
+              priority: 0
+`
+		observed := fixtureAndStatement(t, "referer")
+
+		delta := newResourceDelta(
+			webACLWithAndStatement(aws.String(authored)),
+			webACLWithAndStatement(observed),
+		)
+
+		if delta.DifferentAt("Spec.Rules") {
+			t.Errorf("expected no Spec.Rules delta for a server-lowercased header, got %v", delta.Differences)
+		}
+	})
+
+	t.Run("a genuinely different header name is still a delta", func(t *testing.T) {
+		authored := `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+  - notStatement:
+      statement:
+        byteMatchStatement:
+          fieldToMatch:
+            singleHeader:
+              name: Referer
+          positionalConstraint: EXACTLY
+          searchString: c29tZXRoaW5n
+          textTransformations:
+            - type: NONE
+              priority: 0
+`
+		delta := newResourceDelta(
+			webACLWithAndStatement(aws.String(authored)),
+			webACLWithAndStatement(fixtureAndStatement(t, "user-agent")),
+		)
+
+		if !delta.DifferentAt("Spec.Rules") {
+			t.Error("expected a Spec.Rules delta when the header name genuinely differs")
+		}
+	})
+
+	t.Run("nil and empty rule lists compare equal", func(t *testing.T) {
+		// The generated comparison this hook replaced used a length check, which
+		// treated absent and empty as the same. Preserve that.
+		absent := &resource{ko: &svcapitypes.WebACL{
+			Spec: svcapitypes.WebACLSpec{Name: aws.String("my-acl")},
+		}}
+		empty := &resource{ko: &svcapitypes.WebACL{
+			Spec: svcapitypes.WebACLSpec{Name: aws.String("my-acl"), Rules: []*svcapitypes.Rule{}},
+		}}
+
+		if newResourceDelta(absent, empty).DifferentAt("Spec.Rules") {
+			t.Error("expected absent and empty Rules to compare equal")
+		}
+	})
+
+	t.Run("a lowercased header inside a scope-down statement is not a delta", func(t *testing.T) {
+		// RateBasedStatement.ScopeDownStatement is the deepest path the walk
+		// recurses into, and the CRD stores it as its own string.
+		authored := `byteMatchStatement:
+  fieldToMatch:
+    singleHeader:
+      name: Referer
+  positionalConstraint: EXACTLY
+  searchString: c29tZXRoaW5n
+  textTransformations:
+    - type: NONE
+      priority: 0
+`
+		observed, err := statementToString(&svcsdktypes.Statement{
+			ByteMatchStatement: &svcsdktypes.ByteMatchStatement{
+				FieldToMatch: &svcsdktypes.FieldToMatch{
+					SingleHeader: &svcsdktypes.SingleHeader{Name: aws.String("referer")},
+				},
+				PositionalConstraint: svcsdktypes.PositionalConstraintExactly,
+				SearchString:         []byte("something"),
+				TextTransformations: []svcsdktypes.TextTransformation{
+					{Type: svcsdktypes.TextTransformationTypeNone, Priority: 0},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("rendering scope-down statement: %v", err)
+		}
+
+		delta := newResourceDelta(
+			webACLWithScopeDown(aws.String(authored)),
+			webACLWithScopeDown(observed),
+		)
+
+		if delta.DifferentAt("Spec.Rules") {
+			t.Errorf("expected no delta for a lowercased header in a scope-down statement, got %v", delta.Differences)
+		}
+	})
+
+	t.Run("an unparseable statement does not mask a difference in another rule", func(t *testing.T) {
+		// Rule 0 cannot canonicalise on either side; rule 1 genuinely differs. The
+		// fallback must stay per-statement rather than short-circuiting the list.
+		garbage := aws.String("not a statement")
+		desired := webACLWithAndStatements(garbage, aws.String(authoredAndStatement))
+		latest := webACLWithAndStatements(garbage, sdkRenderedAndStatement(t, "US", "MX"))
+
+		if !newResourceDelta(desired, latest).DifferentAt("Spec.Rules") {
+			t.Error("expected the genuine difference in rule 1 to still register")
 		}
 	})
 

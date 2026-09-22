@@ -41,8 +41,6 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
-	a = canonicalizeRulesNestedStatements(a)
-	b = canonicalizeRulesNestedStatements(b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.AssociationConfig, b.ko.Spec.AssociationConfig) {
 		delta.Add("Spec.AssociationConfig", a.ko.Spec.AssociationConfig, b.ko.Spec.AssociationConfig)
@@ -218,13 +216,6 @@ func newResourceDelta(
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
 		}
 	}
-	if len(a.ko.Spec.Rules) != len(b.ko.Spec.Rules) {
-		delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
-	} else if len(a.ko.Spec.Rules) > 0 {
-		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Rules, b.ko.Spec.Rules) {
-			delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
-		}
-	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Scope, b.ko.Spec.Scope) {
 		delta.Add("Spec.Scope", a.ko.Spec.Scope, b.ko.Spec.Scope)
 	} else if a.ko.Spec.Scope != nil && b.ko.Spec.Scope != nil {
@@ -270,5 +261,6 @@ func newResourceDelta(
 		}
 	}
 
+	customPostCompareRules(delta, a, b)
 	return delta
 }

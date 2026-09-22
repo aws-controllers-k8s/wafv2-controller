@@ -64,6 +64,44 @@ func sdkRenderedAndStatement(t *testing.T, codes ...string) *string {
 	return rendered
 }
 
+// fixtureAndStatement renders the e2e fixture's AndStatement as GetWebACL
+// returns it, with the byte-match header name supplied by the caller so a test
+// can model WAF's server-side lowercasing.
+func fixtureAndStatement(t *testing.T, headerName string) *string {
+	t.Helper()
+	rendered, err := statementToString(&svcsdktypes.AndStatement{
+		Statements: []svcsdktypes.Statement{
+			{
+				GeoMatchStatement: &svcsdktypes.GeoMatchStatement{
+					CountryCodes: []svcsdktypes.CountryCode{"US", "CA"},
+				},
+			},
+			{
+				NotStatement: &svcsdktypes.NotStatement{
+					Statement: &svcsdktypes.Statement{
+						ByteMatchStatement: &svcsdktypes.ByteMatchStatement{
+							FieldToMatch: &svcsdktypes.FieldToMatch{
+								SingleHeader: &svcsdktypes.SingleHeader{
+									Name: aws.String(headerName),
+								},
+							},
+							PositionalConstraint: svcsdktypes.PositionalConstraintExactly,
+							SearchString:         []byte("something"),
+							TextTransformations: []svcsdktypes.TextTransformation{
+								{Type: svcsdktypes.TextTransformationTypeNone, Priority: 0},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("rendering fixture AndStatement: %v", err)
+	}
+	return rendered
+}
+
 const authoredAndStatement = `statements:
   - geoMatchStatement:
       countryCodes:
@@ -113,6 +151,67 @@ func TestNewResourceDeltaNestedStatements(t *testing.T) {
 
 		if !delta.DifferentAt("Spec.Rules") {
 			t.Error("expected an unknown nested key to remain a visible delta")
+		}
+	})
+
+	t.Run("a header name WAF lowercased server-side is not a delta", func(t *testing.T) {
+		// The repository's own nested-statement fixture, whose byte-match inspects
+		// singleHeader "Referer". WAF stores header names lowercased, so GetWebACL
+		// returns "referer" and only a value normalisation can reconcile the two.
+		authored := `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+  - notStatement:
+      statement:
+        byteMatchStatement:
+          fieldToMatch:
+            singleHeader:
+              name: Referer
+          positionalConstraint: EXACTLY
+          searchString: c29tZXRoaW5n
+          textTransformations:
+            - type: NONE
+              priority: 0
+`
+		observed := fixtureAndStatement(t, "referer")
+
+		delta := newResourceDelta(
+			ruleGroupWithAndStatement(aws.String(authored)),
+			ruleGroupWithAndStatement(observed),
+		)
+
+		if delta.DifferentAt("Spec.Rules") {
+			t.Errorf("expected no Spec.Rules delta for a server-lowercased header, got %v", delta.Differences)
+		}
+	})
+
+	t.Run("a genuinely different header name is still a delta", func(t *testing.T) {
+		authored := `statements:
+  - geoMatchStatement:
+      countryCodes:
+        - US
+        - CA
+  - notStatement:
+      statement:
+        byteMatchStatement:
+          fieldToMatch:
+            singleHeader:
+              name: Referer
+          positionalConstraint: EXACTLY
+          searchString: c29tZXRoaW5n
+          textTransformations:
+            - type: NONE
+              priority: 0
+`
+		delta := newResourceDelta(
+			ruleGroupWithAndStatement(aws.String(authored)),
+			ruleGroupWithAndStatement(fixtureAndStatement(t, "user-agent")),
+		)
+
+		if !delta.DifferentAt("Spec.Rules") {
+			t.Error("expected a Spec.Rules delta when the header name genuinely differs")
 		}
 	})
 
