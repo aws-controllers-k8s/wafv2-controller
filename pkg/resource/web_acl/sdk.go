@@ -4386,7 +4386,12 @@ func (rm *resourceManager) sdkUpdate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
-	return &resource{ko}, updateRqueue
+	// UpdateWebACL returns only NextLockToken, so carry the observed status
+	// forward and rotate the lock token instead of requeueing for a re-read.
+	ko.Status = *updatedDesired.ko.Status.DeepCopy()
+	if resp.NextLockToken != nil {
+		ko.Status.LockToken = resp.NextLockToken
+	}
 
 	return &resource{ko}, nil
 }
@@ -6656,6 +6661,49 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	// No terminal_errors specified for this resource in generator config
 	return false
 }
+
+// canonicalizeNestedStatement re-serializes a nested statement string through its SDK shape.
+func canonicalizeNestedStatement[T Statement](s *string) *string {
+	if s == nil || *s == "" {
+		return s
+	}
+	parsed, err := stringToStatement[T](s)
+	if err != nil {
+		return s
+	}
+	canonical, err := statementToString(parsed)
+	if err != nil {
+		return s
+	}
+	return canonical
+}
+
+// canonicalizeRulesNestedStatements returns a deep copy of r carrying canonical nested statements.
+func canonicalizeRulesNestedStatements(r *resource) *resource {
+	if r == nil || r.ko == nil || len(r.ko.Spec.Rules) == 0 {
+		return r
+	}
+	ko := r.ko.DeepCopy()
+	for _, rule := range ko.Spec.Rules {
+		if rule == nil || rule.Statement == nil {
+			continue
+		}
+		s := rule.Statement
+		s.AndStatement = canonicalizeNestedStatement[svcsdktypes.AndStatement](s.AndStatement)
+		s.OrStatement = canonicalizeNestedStatement[svcsdktypes.OrStatement](s.OrStatement)
+		s.NotStatement = canonicalizeNestedStatement[svcsdktypes.NotStatement](s.NotStatement)
+		if s.ManagedRuleGroupStatement != nil {
+			s.ManagedRuleGroupStatement.ScopeDownStatement =
+				canonicalizeNestedStatement[svcsdktypes.Statement](s.ManagedRuleGroupStatement.ScopeDownStatement)
+		}
+		if s.RateBasedStatement != nil {
+			s.RateBasedStatement.ScopeDownStatement =
+				canonicalizeNestedStatement[svcsdktypes.Statement](s.RateBasedStatement.ScopeDownStatement)
+		}
+	}
+	return &resource{ko}
+}
+
 func (rm *resourceManager) setOutputRulesNestedStatements(
 	outputRules []*svcapitypes.Rule,
 	sdkFindOutput *svcsdk.GetWebACLOutput,

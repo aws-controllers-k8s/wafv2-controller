@@ -85,6 +85,10 @@ resources:
       Rules.Statement.ByteMatchStatement.TextTransformations.Type:
         go_tag: json:"type,omitempty"
     hooks:
+      delta_pre_compare:
+        code: |
+          a = canonicalizeRulesNestedStatements(a)
+          b = canonicalizeRulesNestedStatements(b)
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
@@ -139,6 +143,10 @@ resources:
           operation: PutLoggingConfiguration
           path: LoggingConfiguration
     hooks:
+      delta_pre_compare:
+        code: |
+          a = canonicalizeRulesNestedStatements(a)
+          b = canonicalizeRulesNestedStatements(b)
       sdk_read_one_pre_build_request:
         template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:

@@ -41,6 +41,8 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	a = canonicalizeRulesNestedStatements(a)
+	b = canonicalizeRulesNestedStatements(b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.AssociationConfig, b.ko.Spec.AssociationConfig) {
 		delta.Add("Spec.AssociationConfig", a.ko.Spec.AssociationConfig, b.ko.Spec.AssociationConfig)
