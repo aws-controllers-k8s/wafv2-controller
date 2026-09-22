@@ -72,7 +72,7 @@ def nested_statement_rule_group():
     replacements["RULE_GROUP_NAME"] = rule_group_name
 
     resource_data = load_wafv2_resource(
-        "rule_group_nested_statement",
+        "rule_group_nested_statements",
         additional_replacements=replacements,
     )
 
@@ -151,7 +151,7 @@ class TestRuleGroup:
         assert deleted
         rule_group.wait_until_deleted(rule_group_name, rule_group_id)
 
-    def nested_statement(self, nested_statement_rule_group):
+    def test_nested_statement(self, nested_statement_rule_group):
         ref, _ = nested_statement_rule_group
 
         time.sleep(CREATE_WAIT_SECONDS)
@@ -181,6 +181,20 @@ class TestRuleGroup:
         assert "GeoMatchStatement" in statements[0]
         assert "NotStatement" in statements[1]
         assert "ByteMatchStatement" in statements[1]["NotStatement"]["Statement"]
+
+        # The nested statement must round-trip through the delta. Waiting cannot
+        # show that: the resync period is hours, so a sleep proves only that no
+        # self-sustaining loop is running. Force a reconcile with a no-op
+        # annotation instead, then assert it issued no update. LockToken rotates
+        # on every UpdateRuleGroup.
+        lock_token = k8s.get_resource(ref)["status"]["lockToken"]
+        k8s.patch_custom_resource(
+            ref,
+            {"metadata": {"annotations": {"e2e.wafv2.services.k8s.aws/force-reconcile": "1"}}},
+        )
+        time.sleep(MODIFY_WAIT_SECONDS)
+        condition.assert_synced(ref)
+        assert k8s.get_resource(ref)["status"]["lockToken"] == lock_token
 
         # delete the CR
         _, deleted = k8s.delete_custom_resource(ref, DELETE_WAIT_SECONDS)
