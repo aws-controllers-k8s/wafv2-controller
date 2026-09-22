@@ -249,10 +249,16 @@ class TestWebACL:
         assert "NotStatement" in statements[1]
         assert "ByteMatchStatement" in statements[1]["NotStatement"]["Statement"]
 
-        # The nested statement must round-trip through the delta, otherwise the
-        # controller updates the WebACL on every reconcile. LockToken rotates on
-        # each UpdateWebACL, so an unchanged token means no update was issued.
+        # The nested statement must round-trip through the delta. Waiting cannot
+        # show that: the resync period is hours, so a sleep proves only that no
+        # self-sustaining loop is running -- which the requeue removal alone would
+        # satisfy. Force a reconcile with a no-op annotation instead, then assert
+        # it issued no update. LockToken rotates on every UpdateWebACL.
         lock_token = k8s.get_resource(ref)["status"]["lockToken"]
+        k8s.patch_custom_resource(
+            ref,
+            {"metadata": {"annotations": {"e2e.wafv2.services.k8s.aws/force-reconcile": "1"}}},
+        )
         time.sleep(MODIFY_WAIT_SECONDS)
         condition.assert_synced(ref)
         assert k8s.get_resource(ref)["status"]["lockToken"] == lock_token
