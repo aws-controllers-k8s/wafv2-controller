@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ghodss/yaml"
 
@@ -13,15 +12,10 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
-	"github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
 
 	svcapitypes "github.com/aws-controllers-k8s/wafv2-controller/apis/v1alpha1"
-)
-
-var (
-	updateRqueue = requeue.NeededAfter(fmt.Errorf("resource updated, requeing to sync webacl status"), time.Second)
 )
 
 type Statement interface {

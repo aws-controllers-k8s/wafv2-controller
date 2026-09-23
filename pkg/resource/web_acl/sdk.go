@@ -4358,6 +4358,13 @@ func (rm *resourceManager) sdkUpdate(
 	if err := rm.setInputRulesNestedStatements(input.Rules, desired); err != nil {
 		return nil, err
 	}
+
+	// Use optimistic lock token from latest to ensure token is not stale due to
+	// out of band update or failed write to k8s api server.
+	if latest.ko.Status.LockToken != nil {
+		input.LockToken = latest.ko.Status.LockToken
+	}
+
 	// Carry the latest observed status onto a copy of desired so the returned
 	// resource reflects the observed state (including conditions) rather than a
 	// stale create-time condition, allowing the resource to converge to synced.
@@ -4386,7 +4393,15 @@ func (rm *resourceManager) sdkUpdate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
-	return &resource{ko}, updateRqueue
+	// Re-read status fields for resource to ensure that values impacted by the update
+	// reflect the change (see https://github.com/aws-controllers-k8s/community/issues/2852)
+	refreshed, err := rm.sdkFind(ctx, latest)
+	if err != nil {
+		return nil, err
+	}
+	synced := rm.concreteResource(desired.DeepCopy())
+	synced.SetStatus(refreshed)
+	return synced, nil
 
 	return &resource{ko}, nil
 }
