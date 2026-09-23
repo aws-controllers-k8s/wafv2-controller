@@ -4358,6 +4358,13 @@ func (rm *resourceManager) sdkUpdate(
 	if err := rm.setInputRulesNestedStatements(input.Rules, desired); err != nil {
 		return nil, err
 	}
+
+	// Use optimistic lock token from latest to ensure token is not stale due to
+	// out of band update or failed write to k8s api server.
+	if latest.ko.Status.LockToken != nil {
+		input.LockToken = latest.ko.Status.LockToken
+	}
+
 	// Carry the latest observed status onto a copy of desired so the returned
 	// resource reflects the observed state (including conditions) rather than a
 	// stale create-time condition, allowing the resource to converge to synced.
@@ -4386,12 +4393,8 @@ func (rm *resourceManager) sdkUpdate(
 	ko := desired.ko.DeepCopy()
 
 	rm.setStatusDefaults(ko)
-	// UpdateWebACL rotates the resource's lock token and returns only the new
-	// token, not the updated resource. Read the resource back so the returned
-	// object carries the current observed status -- including the rotated lock
-	// token -- and return it with no requeue. sdkUpdate previously requeued
-	// after one second to force that re-read; against WAF's account-wide 1 rps
-	// write quota that turned any residual delta into a per-second update loop.
+	// Re-read status fields for resource to ensure that values impacted by the update
+	// reflect the change (see https://github.com/aws-controllers-k8s/community/issues/2852)
 	refreshed, err := rm.sdkFind(ctx, latest)
 	if err != nil {
 		return nil, err
