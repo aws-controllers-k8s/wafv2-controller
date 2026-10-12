@@ -1535,11 +1535,8 @@ License Identifier: Apache-2.0
 
 Subdependencies:
 * `github.com/aws/smithy-go`
-* `github.com/jmespath/go-jmespath`
 
-
-
-#### github.com/jmespath/go-jmespath
+#### github.com/aws/smithy-go
 
 License Identifier: Apache-2.0
 

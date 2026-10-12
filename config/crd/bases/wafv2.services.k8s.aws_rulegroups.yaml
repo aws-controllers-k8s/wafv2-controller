@@ -485,9 +485,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -819,8 +819,9 @@ spec:
                                 If the specified header isn't present in the request, WAF doesn't apply the
                                 rule to the web request at all.
 
-                                This configuration is used for GeoMatchStatement and RateBasedStatement.
-                                For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
+                                This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+                                RateBasedStatement. For IPSetReferenceStatement, use IPSetForwardedIPConfig
+                                instead.
 
                                 WAF only evaluates the first IP address found in the specified HTTP header.
                               properties:
@@ -929,6 +930,12 @@ spec:
                                      locations in the account creation request payload of data, such as the
                                      user email and phone number fields.
 
+                                     * Use the AWSManagedRulesAntiDDoSRuleSet configuration object to configure
+                                     the anti-DDoS managed rule group. The configuration includes the sensitivity
+                                     levels to use in the rules that typically block and challenge requests
+                                     that might be participating in DDoS attacks and the specification to use
+                                     to indicate whether a request can handle a silent browser challenge.
+
                                      * Use the AWSManagedRulesATPRuleSet configuration object to configure
                                      the account takeover prevention managed rule group. The configuration
                                      includes the sign-in page of your application and the locations in the
@@ -943,6 +950,11 @@ spec:
                                     description: |-
                                       Details for your use of the account creation fraud prevention managed rule
                                       group, AWSManagedRulesACFPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+
+                                      For additional information about this and the other intelligent threat mitigation
+                                      rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+                                      and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+                                      in the WAF Developer Guide.
                                     properties:
                                       creationPath:
                                         type: string
@@ -1126,6 +1138,11 @@ spec:
                                     description: |-
                                       Details for your use of the account takeover prevention managed rule group,
                                       AWSManagedRulesATPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+
+                                      For additional information about this and the other intelligent threat mitigation
+                                      rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+                                      and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+                                      in the WAF Developer Guide.
                                     properties:
                                       enableRegexInPath:
                                         type: boolean
@@ -1268,10 +1285,57 @@ spec:
                                             type: object
                                         type: object
                                     type: object
+                                  awsManagedRulesAntiDDoSRuleSet:
+                                    description: |-
+                                      Configures the use of the anti-DDoS managed rule group, AWSManagedRulesAntiDDoSRuleSet.
+                                      This configuration is used in ManagedRuleGroupConfig.
+
+                                      The configuration that you provide here determines whether and how the rules
+                                      in the rule group are used.
+
+                                      For additional information about this and the other intelligent threat mitigation
+                                      rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+                                      and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+                                      in the WAF Developer Guide.
+                                    properties:
+                                      clientSideActionConfig:
+                                        description: |-
+                                          This is part of the configuration for the managed rules AWSManagedRulesAntiDDoSRuleSet
+                                          in ManagedRuleGroupConfig.
+                                        properties:
+                                          challenge:
+                                            description: |-
+                                              This is part of the AWSManagedRulesAntiDDoSRuleSet ClientSideActionConfig
+                                              configuration in ManagedRuleGroupConfig.
+                                            properties:
+                                              exemptURIRegularExpressions:
+                                                items:
+                                                  description: |-
+                                                    A single regular expression. This is used in a RegexPatternSet and also in
+                                                    the configuration for the Amazon Web Services Managed Rules rule group AWSManagedRulesAntiDDoSRuleSet.
+                                                  properties:
+                                                    regexString:
+                                                      type: string
+                                                  type: object
+                                                type: array
+                                              sensitivity:
+                                                type: string
+                                              usageOfAction:
+                                                type: string
+                                            type: object
+                                        type: object
+                                      sensitivityToBlock:
+                                        type: string
+                                    type: object
                                   awsManagedRulesBotControlRuleSet:
                                     description: |-
                                       Details for your use of the Bot Control managed rule group, AWSManagedRulesBotControlRuleSet.
                                       This configuration is used in ManagedRuleGroupConfig.
+
+                                      For additional information about this and the other intelligent threat mitigation
+                                      rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+                                      and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+                                      in the WAF Developer Guide.
                                     properties:
                                       enableMachineLearning:
                                         type: boolean
@@ -1314,6 +1378,12 @@ spec:
                                   Action setting to use in the place of a rule action that is configured inside
                                   the rule group. You specify one override for each rule whose action you want
                                   to change.
+
+                                  Verify the rule names in your overrides carefully. With managed rule groups,
+                                  WAF silently ignores any override that uses an invalid rule name. With customer-owned
+                                  rule groups, invalid rule names in your overrides will cause web ACL updates
+                                  to fail. An invalid rule name is any name that doesn't exactly match the
+                                  case-sensitive name of an existing rule in the rule group.
 
                                   You can use overrides for testing, for example you can override all of rule
                                   actions to Count and then monitor the resulting count metrics to understand
@@ -1839,8 +1909,9 @@ spec:
                                 If the specified header isn't present in the request, WAF doesn't apply the
                                 rule to the web request at all.
 
-                                This configuration is used for GeoMatchStatement and RateBasedStatement.
-                                For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
+                                This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+                                RateBasedStatement. For IPSetReferenceStatement, use IPSetForwardedIPConfig
+                                instead.
 
                                 WAF only evaluates the first IP address found in the specified HTTP header.
                               properties:
@@ -1883,9 +1954,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -2210,9 +2281,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -2529,6 +2600,12 @@ spec:
                                   the rule group. You specify one override for each rule whose action you want
                                   to change.
 
+                                  Verify the rule names in your overrides carefully. With managed rule groups,
+                                  WAF silently ignores any override that uses an invalid rule name. With customer-owned
+                                  rule groups, invalid rule names in your overrides will cause web ACL updates
+                                  to fail. An invalid rule name is any name that doesn't exactly match the
+                                  case-sensitive name of an existing rule in the rule group.
+
                                   You can use overrides for testing, for example you can override all of rule
                                   actions to Count and then monitor the resulting count metrics to understand
                                   how the rule group would handle your web traffic. You can also permanently
@@ -2782,9 +2859,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -3100,9 +3177,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -3417,9 +3494,9 @@ spec:
                                    individual fields talk about specifying the web request component to inspect,
                                    but for field redaction, you are specifying the component type to redact
                                    from the logs. If you have request sampling enabled, the redacted fields
-                                   configuration for logging has no impact on sampling. The only way to exclude
-                                   fields from request sampling is by disabling sampling in the web ACL visibility
-                                   configuration.
+                                   configuration for logging has no impact on sampling. You can only exclude
+                                   fields from request sampling by disabling sampling in the web ACL visibility
+                                   configuration or by configuring data protection for the web ACL.
                               properties:
                                 allQueryArguments:
                                   additionalProperties:
@@ -3719,11 +3796,8 @@ spec:
                 type: array
               scope:
                 description: |-
-                  Specifies whether this is for an Amazon CloudFront distribution or for a
-                  regional application. A regional application can be an Application Load Balancer
-                  (ALB), an Amazon API Gateway REST API, an AppSync GraphQL API, an Amazon
-                  Cognito user pool, an App Runner service, or an Amazon Web Services Verified
-                  Access instance.
+                  Specifies whether this is for a global resource type, such as a Amazon CloudFront
+                  distribution. For an Amplify application, use CLOUDFRONT.
 
                   To work with CloudFront, you must also specify the Region US East (N. Virginia)
                   as follows:
