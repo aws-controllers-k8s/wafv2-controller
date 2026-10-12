@@ -16,6 +16,20 @@ ignore:
     - WebACL.Rules.Statement.NotStatement
     - WebACL.Rules.Statement.ManagedRuleGroupStatement.ScopeDownStatement
     - WebACL.Rules.Statement.RateBasedStatement.ScopeDownStatement
+    - GetWebACLInput.ARN
+  shape_names:
+    - ApplicationConfig
+    - DataProtectionConfig
+    - MonetizationConfig
+    - MonetizeAction
+    - OnSourceDDoSProtectionConfig
+    - AsnMatchStatement
+    - JA4Fingerprint
+    - UriFragment
+    - PreParseTextTransformations
+    - RateLimitAsn
+    - RateLimitJA3Fingerprint
+    - RateLimitJA4Fingerprint
 empty_shapes:
   - All
   - Method
@@ -33,6 +47,7 @@ operations:
     output_wrapper_field_path: RuleGroup
   GetWebACL:
     output_wrapper_field_path: WebACL
+    custom_check_required_fields_missing_method: customCheckRequiredFieldsMissing
 resources:
   IPSet:
     exceptions:
@@ -139,8 +154,6 @@ resources:
           operation: PutLoggingConfiguration
           path: LoggingConfiguration
     hooks:
-      sdk_read_one_pre_build_request:
-        template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
         template_path: hooks/webacl/sdk_read_one_post_set_output.go.tpl
       sdk_create_post_build_request:
@@ -153,3 +166,5 @@ resources:
         template_path: hooks/webacl/sdk_update_post_set_output.go.tpl
       sdk_file_end:
         template_path: hooks/common/sdk_file_end.go.tpl
+      post_populate_resource_from_annotation:
+        template_path: hooks/webacl/post_populate_resource_from_annotation.go.tpl

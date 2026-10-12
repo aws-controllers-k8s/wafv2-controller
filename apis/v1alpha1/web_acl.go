@@ -29,10 +29,10 @@ import (
 // request that does not match any of the rules. The rules in a web ACL can
 // be a combination of the types Rule, RuleGroup, and managed rule group. You
 // can associate a web ACL with one or more Amazon Web Services resources to
-// protect. The resources can be an Amazon CloudFront distribution, an Amazon
-// API Gateway REST API, an Application Load Balancer, an AppSync GraphQL API,
-// an Amazon Cognito user pool, an App Runner service, or an Amazon Web Services
-// Verified Access instance.
+// protect. The resource types include Amazon CloudFront distribution, Amazon
+// API Gateway REST API, Application Load Balancer, AppSync GraphQL API, Amazon
+// Cognito user pool, App Runner service, Amplify application, Amazon Web Services
+// Verified Access instance, and Amazon Bedrock AgentCore Gateway.
 type WebACLSpec struct {
 
 	// Specifies custom configurations for the associations between the web ACL
@@ -90,11 +90,8 @@ type WebACLSpec struct {
 	// Each rule includes one top-level statement that WAF uses to identify matching
 	// web requests, and parameters that govern how WAF handles them.
 	Rules []*Rule `json:"rules,omitempty"`
-	// Specifies whether this is for an Amazon CloudFront distribution or for a
-	// regional application. A regional application can be an Application Load Balancer
-	// (ALB), an Amazon API Gateway REST API, an AppSync GraphQL API, an Amazon
-	// Cognito user pool, an App Runner service, or an Amazon Web Services Verified
-	// Access instance.
+	// Specifies whether this is for a global resource type, such as a Amazon CloudFront
+	// distribution. For an Amplify application, use CLOUDFRONT.
 	//
 	// To work with CloudFront, you must also specify the Region US East (N. Virginia)
 	// as follows:
