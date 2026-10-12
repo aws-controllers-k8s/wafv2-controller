@@ -773,35 +773,67 @@ func (rm *resourceManager) sdkFind(
 								}
 								f9elemf7f5f1elem.AWSManagedRulesATPRuleSet = f9elemf7f5f1elemf1
 							}
+							if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet != nil {
+								f9elemf7f5f1elemf2 := &svcapitypes.AWSManagedRulesAntiDDoSRuleSet{}
+								if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig != nil {
+									f9elemf7f5f1elemf2f0 := &svcapitypes.ClientSideActionConfig{}
+									if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge != nil {
+										f9elemf7f5f1elemf2f0f0 := &svcapitypes.ClientSideAction{}
+										if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptUriRegularExpressions != nil {
+											f9elemf7f5f1elemf2f0f0f0 := []*svcapitypes.Regex{}
+											for _, f9elemf7f5f1elemf2f0f0f0iter := range f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptUriRegularExpressions {
+												f9elemf7f5f1elemf2f0f0f0elem := &svcapitypes.Regex{}
+												if f9elemf7f5f1elemf2f0f0f0iter.RegexString != nil {
+													f9elemf7f5f1elemf2f0f0f0elem.RegexString = f9elemf7f5f1elemf2f0f0f0iter.RegexString
+												}
+												f9elemf7f5f1elemf2f0f0f0 = append(f9elemf7f5f1elemf2f0f0f0, f9elemf7f5f1elemf2f0f0f0elem)
+											}
+											f9elemf7f5f1elemf2f0f0.ExemptURIRegularExpressions = f9elemf7f5f1elemf2f0f0f0
+										}
+										if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity != "" {
+											f9elemf7f5f1elemf2f0f0.Sensitivity = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity))
+										}
+										if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction != "" {
+											f9elemf7f5f1elemf2f0f0.UsageOfAction = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction))
+										}
+										f9elemf7f5f1elemf2f0.Challenge = f9elemf7f5f1elemf2f0f0
+									}
+									f9elemf7f5f1elemf2.ClientSideActionConfig = f9elemf7f5f1elemf2f0
+								}
+								if f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock != "" {
+									f9elemf7f5f1elemf2.SensitivityToBlock = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock))
+								}
+								f9elemf7f5f1elem.AWSManagedRulesAntiDDoSRuleSet = f9elemf7f5f1elemf2
+							}
 							if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet != nil {
-								f9elemf7f5f1elemf2 := &svcapitypes.AWSManagedRulesBotControlRuleSet{}
+								f9elemf7f5f1elemf3 := &svcapitypes.AWSManagedRulesBotControlRuleSet{}
 								if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
-									f9elemf7f5f1elemf2.EnableMachineLearning = f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
+									f9elemf7f5f1elemf3.EnableMachineLearning = f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
 								if f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != "" {
-									f9elemf7f5f1elemf2.InspectionLevel = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel))
+									f9elemf7f5f1elemf3.InspectionLevel = aws.String(string(f9elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel))
 								}
-								f9elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f9elemf7f5f1elemf2
+								f9elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f9elemf7f5f1elemf3
 							}
 							if f9elemf7f5f1iter.LoginPath != nil {
 								f9elemf7f5f1elem.LoginPath = f9elemf7f5f1iter.LoginPath
 							}
 							if f9elemf7f5f1iter.PasswordField != nil {
-								f9elemf7f5f1elemf4 := &svcapitypes.PasswordField{}
+								f9elemf7f5f1elemf5 := &svcapitypes.PasswordField{}
 								if f9elemf7f5f1iter.PasswordField.Identifier != nil {
-									f9elemf7f5f1elemf4.Identifier = f9elemf7f5f1iter.PasswordField.Identifier
+									f9elemf7f5f1elemf5.Identifier = f9elemf7f5f1iter.PasswordField.Identifier
 								}
-								f9elemf7f5f1elem.PasswordField = f9elemf7f5f1elemf4
+								f9elemf7f5f1elem.PasswordField = f9elemf7f5f1elemf5
 							}
 							if f9elemf7f5f1iter.PayloadType != "" {
 								f9elemf7f5f1elem.PayloadType = aws.String(string(f9elemf7f5f1iter.PayloadType))
 							}
 							if f9elemf7f5f1iter.UsernameField != nil {
-								f9elemf7f5f1elemf6 := &svcapitypes.UsernameField{}
+								f9elemf7f5f1elemf7 := &svcapitypes.UsernameField{}
 								if f9elemf7f5f1iter.UsernameField.Identifier != nil {
-									f9elemf7f5f1elemf6.Identifier = f9elemf7f5f1iter.UsernameField.Identifier
+									f9elemf7f5f1elemf7.Identifier = f9elemf7f5f1iter.UsernameField.Identifier
 								}
-								f9elemf7f5f1elem.UsernameField = f9elemf7f5f1elemf6
+								f9elemf7f5f1elem.UsernameField = f9elemf7f5f1elemf7
 							}
 							f9elemf7f5f1 = append(f9elemf7f5f1, f9elemf7f5f1elem)
 						}
@@ -2809,35 +2841,67 @@ func (rm *resourceManager) newCreateRequestPayload(
 								}
 								f4elemf7f5f1elem.AWSManagedRulesATPRuleSet = f4elemf7f5f1elemf1
 							}
+							if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet != nil {
+								f4elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesAntiDDoSRuleSet{}
+								if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig != nil {
+									f4elemf7f5f1elemf2f0 := &svcsdktypes.ClientSideActionConfig{}
+									if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge != nil {
+										f4elemf7f5f1elemf2f0f0 := &svcsdktypes.ClientSideAction{}
+										if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptURIRegularExpressions != nil {
+											f4elemf7f5f1elemf2f0f0f0 := []svcsdktypes.Regex{}
+											for _, f4elemf7f5f1elemf2f0f0f0iter := range f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptURIRegularExpressions {
+												f4elemf7f5f1elemf2f0f0f0elem := &svcsdktypes.Regex{}
+												if f4elemf7f5f1elemf2f0f0f0iter.RegexString != nil {
+													f4elemf7f5f1elemf2f0f0f0elem.RegexString = f4elemf7f5f1elemf2f0f0f0iter.RegexString
+												}
+												f4elemf7f5f1elemf2f0f0f0 = append(f4elemf7f5f1elemf2f0f0f0, *f4elemf7f5f1elemf2f0f0f0elem)
+											}
+											f4elemf7f5f1elemf2f0f0.ExemptUriRegularExpressions = f4elemf7f5f1elemf2f0f0f0
+										}
+										if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity != nil {
+											f4elemf7f5f1elemf2f0f0.Sensitivity = svcsdktypes.SensitivityToAct(*f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity)
+										}
+										if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction != nil {
+											f4elemf7f5f1elemf2f0f0.UsageOfAction = svcsdktypes.UsageOfAction(*f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction)
+										}
+										f4elemf7f5f1elemf2f0.Challenge = f4elemf7f5f1elemf2f0f0
+									}
+									f4elemf7f5f1elemf2.ClientSideActionConfig = f4elemf7f5f1elemf2f0
+								}
+								if f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock != nil {
+									f4elemf7f5f1elemf2.SensitivityToBlock = svcsdktypes.SensitivityToAct(*f4elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock)
+								}
+								f4elemf7f5f1elem.AWSManagedRulesAntiDDoSRuleSet = f4elemf7f5f1elemf2
+							}
 							if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet != nil {
-								f4elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
+								f4elemf7f5f1elemf3 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
 								if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
-									f4elemf7f5f1elemf2.EnableMachineLearning = f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
+									f4elemf7f5f1elemf3.EnableMachineLearning = f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
 								if f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != nil {
-									f4elemf7f5f1elemf2.InspectionLevel = svcsdktypes.InspectionLevel(*f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
+									f4elemf7f5f1elemf3.InspectionLevel = svcsdktypes.InspectionLevel(*f4elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
 								}
-								f4elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f4elemf7f5f1elemf2
+								f4elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f4elemf7f5f1elemf3
 							}
 							if f4elemf7f5f1iter.LoginPath != nil {
 								f4elemf7f5f1elem.LoginPath = f4elemf7f5f1iter.LoginPath
 							}
 							if f4elemf7f5f1iter.PasswordField != nil {
-								f4elemf7f5f1elemf4 := &svcsdktypes.PasswordField{}
+								f4elemf7f5f1elemf5 := &svcsdktypes.PasswordField{}
 								if f4elemf7f5f1iter.PasswordField.Identifier != nil {
-									f4elemf7f5f1elemf4.Identifier = f4elemf7f5f1iter.PasswordField.Identifier
+									f4elemf7f5f1elemf5.Identifier = f4elemf7f5f1iter.PasswordField.Identifier
 								}
-								f4elemf7f5f1elem.PasswordField = f4elemf7f5f1elemf4
+								f4elemf7f5f1elem.PasswordField = f4elemf7f5f1elemf5
 							}
 							if f4elemf7f5f1iter.PayloadType != nil {
 								f4elemf7f5f1elem.PayloadType = svcsdktypes.PayloadType(*f4elemf7f5f1iter.PayloadType)
 							}
 							if f4elemf7f5f1iter.UsernameField != nil {
-								f4elemf7f5f1elemf6 := &svcsdktypes.UsernameField{}
+								f4elemf7f5f1elemf7 := &svcsdktypes.UsernameField{}
 								if f4elemf7f5f1iter.UsernameField.Identifier != nil {
-									f4elemf7f5f1elemf6.Identifier = f4elemf7f5f1iter.UsernameField.Identifier
+									f4elemf7f5f1elemf7.Identifier = f4elemf7f5f1iter.UsernameField.Identifier
 								}
-								f4elemf7f5f1elem.UsernameField = f4elemf7f5f1elemf6
+								f4elemf7f5f1elem.UsernameField = f4elemf7f5f1elemf7
 							}
 							f4elemf7f5f1 = append(f4elemf7f5f1, *f4elemf7f5f1elem)
 						}
@@ -4876,35 +4940,67 @@ func (rm *resourceManager) newUpdateRequestPayload(
 								}
 								f5elemf7f5f1elem.AWSManagedRulesATPRuleSet = f5elemf7f5f1elemf1
 							}
+							if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet != nil {
+								f5elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesAntiDDoSRuleSet{}
+								if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig != nil {
+									f5elemf7f5f1elemf2f0 := &svcsdktypes.ClientSideActionConfig{}
+									if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge != nil {
+										f5elemf7f5f1elemf2f0f0 := &svcsdktypes.ClientSideAction{}
+										if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptURIRegularExpressions != nil {
+											f5elemf7f5f1elemf2f0f0f0 := []svcsdktypes.Regex{}
+											for _, f5elemf7f5f1elemf2f0f0f0iter := range f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.ExemptURIRegularExpressions {
+												f5elemf7f5f1elemf2f0f0f0elem := &svcsdktypes.Regex{}
+												if f5elemf7f5f1elemf2f0f0f0iter.RegexString != nil {
+													f5elemf7f5f1elemf2f0f0f0elem.RegexString = f5elemf7f5f1elemf2f0f0f0iter.RegexString
+												}
+												f5elemf7f5f1elemf2f0f0f0 = append(f5elemf7f5f1elemf2f0f0f0, *f5elemf7f5f1elemf2f0f0f0elem)
+											}
+											f5elemf7f5f1elemf2f0f0.ExemptUriRegularExpressions = f5elemf7f5f1elemf2f0f0f0
+										}
+										if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity != nil {
+											f5elemf7f5f1elemf2f0f0.Sensitivity = svcsdktypes.SensitivityToAct(*f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.Sensitivity)
+										}
+										if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction != nil {
+											f5elemf7f5f1elemf2f0f0.UsageOfAction = svcsdktypes.UsageOfAction(*f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.ClientSideActionConfig.Challenge.UsageOfAction)
+										}
+										f5elemf7f5f1elemf2f0.Challenge = f5elemf7f5f1elemf2f0f0
+									}
+									f5elemf7f5f1elemf2.ClientSideActionConfig = f5elemf7f5f1elemf2f0
+								}
+								if f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock != nil {
+									f5elemf7f5f1elemf2.SensitivityToBlock = svcsdktypes.SensitivityToAct(*f5elemf7f5f1iter.AWSManagedRulesAntiDDoSRuleSet.SensitivityToBlock)
+								}
+								f5elemf7f5f1elem.AWSManagedRulesAntiDDoSRuleSet = f5elemf7f5f1elemf2
+							}
 							if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet != nil {
-								f5elemf7f5f1elemf2 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
+								f5elemf7f5f1elemf3 := &svcsdktypes.AWSManagedRulesBotControlRuleSet{}
 								if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning != nil {
-									f5elemf7f5f1elemf2.EnableMachineLearning = f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
+									f5elemf7f5f1elemf3.EnableMachineLearning = f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.EnableMachineLearning
 								}
 								if f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel != nil {
-									f5elemf7f5f1elemf2.InspectionLevel = svcsdktypes.InspectionLevel(*f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
+									f5elemf7f5f1elemf3.InspectionLevel = svcsdktypes.InspectionLevel(*f5elemf7f5f1iter.AWSManagedRulesBotControlRuleSet.InspectionLevel)
 								}
-								f5elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f5elemf7f5f1elemf2
+								f5elemf7f5f1elem.AWSManagedRulesBotControlRuleSet = f5elemf7f5f1elemf3
 							}
 							if f5elemf7f5f1iter.LoginPath != nil {
 								f5elemf7f5f1elem.LoginPath = f5elemf7f5f1iter.LoginPath
 							}
 							if f5elemf7f5f1iter.PasswordField != nil {
-								f5elemf7f5f1elemf4 := &svcsdktypes.PasswordField{}
+								f5elemf7f5f1elemf5 := &svcsdktypes.PasswordField{}
 								if f5elemf7f5f1iter.PasswordField.Identifier != nil {
-									f5elemf7f5f1elemf4.Identifier = f5elemf7f5f1iter.PasswordField.Identifier
+									f5elemf7f5f1elemf5.Identifier = f5elemf7f5f1iter.PasswordField.Identifier
 								}
-								f5elemf7f5f1elem.PasswordField = f5elemf7f5f1elemf4
+								f5elemf7f5f1elem.PasswordField = f5elemf7f5f1elemf5
 							}
 							if f5elemf7f5f1iter.PayloadType != nil {
 								f5elemf7f5f1elem.PayloadType = svcsdktypes.PayloadType(*f5elemf7f5f1iter.PayloadType)
 							}
 							if f5elemf7f5f1iter.UsernameField != nil {
-								f5elemf7f5f1elemf6 := &svcsdktypes.UsernameField{}
+								f5elemf7f5f1elemf7 := &svcsdktypes.UsernameField{}
 								if f5elemf7f5f1iter.UsernameField.Identifier != nil {
-									f5elemf7f5f1elemf6.Identifier = f5elemf7f5f1iter.UsernameField.Identifier
+									f5elemf7f5f1elemf7.Identifier = f5elemf7f5f1iter.UsernameField.Identifier
 								}
-								f5elemf7f5f1elem.UsernameField = f5elemf7f5f1elemf6
+								f5elemf7f5f1elem.UsernameField = f5elemf7f5f1elemf7
 							}
 							f5elemf7f5f1 = append(f5elemf7f5f1, *f5elemf7f5f1elem)
 						}

@@ -24,16 +24,27 @@ const (
 	ActionValue_CHALLENGE         ActionValue = "CHALLENGE"
 	ActionValue_COUNT             ActionValue = "COUNT"
 	ActionValue_EXCLUDED_AS_COUNT ActionValue = "EXCLUDED_AS_COUNT"
+	ActionValue_MONETIZE          ActionValue = "MONETIZE"
 )
 
 type AssociatedResourceType string
 
 const (
+	AssociatedResourceType_AGENTCORE_GATEWAY        AssociatedResourceType = "AGENTCORE_GATEWAY"
 	AssociatedResourceType_API_GATEWAY              AssociatedResourceType = "API_GATEWAY"
 	AssociatedResourceType_APP_RUNNER_SERVICE       AssociatedResourceType = "APP_RUNNER_SERVICE"
 	AssociatedResourceType_CLOUDFRONT               AssociatedResourceType = "CLOUDFRONT"
 	AssociatedResourceType_COGNITO_USER_POOL        AssociatedResourceType = "COGNITO_USER_POOL"
 	AssociatedResourceType_VERIFIED_ACCESS_INSTANCE AssociatedResourceType = "VERIFIED_ACCESS_INSTANCE"
+)
+
+type BlockchainChain string
+
+const (
+	BlockchainChain_BASE          BlockchainChain = "BASE"
+	BlockchainChain_BASE_SEPOLIA  BlockchainChain = "BASE_SEPOLIA"
+	BlockchainChain_SOLANA        BlockchainChain = "SOLANA"
+	BlockchainChain_SOLANA_DEVNET BlockchainChain = "SOLANA_DEVNET"
 )
 
 type BodyParsingFallbackBehavior string
@@ -310,6 +321,32 @@ const (
 	CountryCode_ZW CountryCode = "ZW"
 )
 
+type CryptoCurrency string
+
+const (
+	CryptoCurrency_USDC CryptoCurrency = "USDC"
+)
+
+type Currency string
+
+const (
+	Currency_USDC Currency = "USDC"
+)
+
+type CurrencyMode string
+
+const (
+	CurrencyMode_REAL CurrencyMode = "REAL"
+	CurrencyMode_TEST CurrencyMode = "TEST"
+)
+
+type DataProtectionAction string
+
+const (
+	DataProtectionAction_HASH         DataProtectionAction = "HASH"
+	DataProtectionAction_SUBSTITUTION DataProtectionAction = "SUBSTITUTION"
+)
+
 type FailureReason string
 
 const (
@@ -324,6 +361,16 @@ type FallbackBehavior string
 const (
 	FallbackBehavior_MATCH    FallbackBehavior = "MATCH"
 	FallbackBehavior_NO_MATCH FallbackBehavior = "NO_MATCH"
+)
+
+type FieldToProtectType string
+
+const (
+	FieldToProtectType_BODY                  FieldToProtectType = "BODY"
+	FieldToProtectType_QUERY_STRING          FieldToProtectType = "QUERY_STRING"
+	FieldToProtectType_SINGLE_COOKIE         FieldToProtectType = "SINGLE_COOKIE"
+	FieldToProtectType_SINGLE_HEADER         FieldToProtectType = "SINGLE_HEADER"
+	FieldToProtectType_SINGLE_QUERY_ARGUMENT FieldToProtectType = "SINGLE_QUERY_ARGUMENT"
 )
 
 type FilterBehavior string
@@ -348,6 +395,16 @@ const (
 	ForwardedIPPosition_LAST  ForwardedIPPosition = "LAST"
 )
 
+type GroupByType string
+
+const (
+	GroupByType_CATEGORY     GroupByType = "CATEGORY"
+	GroupByType_INTENT       GroupByType = "INTENT"
+	GroupByType_NAME         GroupByType = "NAME"
+	GroupByType_ORGANIZATION GroupByType = "ORGANIZATION"
+	GroupByType_WEBACL       GroupByType = "WEBACL"
+)
+
 type IPAddressVersion string
 
 const (
@@ -360,6 +417,15 @@ type InspectionLevel string
 const (
 	InspectionLevel_COMMON   InspectionLevel = "COMMON"
 	InspectionLevel_TARGETED InspectionLevel = "TARGETED"
+)
+
+type IntervalType string
+
+const (
+	IntervalType_DAILY         IntervalType = "DAILY"
+	IntervalType_FIVE_MINUTELY IntervalType = "FIVE_MINUTELY"
+	IntervalType_HOURLY        IntervalType = "HOURLY"
+	IntervalType_MINUTELY      IntervalType = "MINUTELY"
 )
 
 type JSONMatchScope string
@@ -380,14 +446,22 @@ const (
 type LogScope string
 
 const (
-	LogScope_CUSTOMER      LogScope = "CUSTOMER"
-	LogScope_SECURITY_LAKE LogScope = "SECURITY_LAKE"
+	LogScope_CLOUDWATCH_TELEMETRY_RULE_MANAGED LogScope = "CLOUDWATCH_TELEMETRY_RULE_MANAGED"
+	LogScope_CUSTOMER                          LogScope = "CUSTOMER"
+	LogScope_SECURITY_LAKE                     LogScope = "SECURITY_LAKE"
 )
 
 type LogType string
 
 const (
 	LogType_WAF_LOGS LogType = "WAF_LOGS"
+)
+
+type LowReputationMode string
+
+const (
+	LowReputationMode_ACTIVE_UNDER_DDOS LowReputationMode = "ACTIVE_UNDER_DDOS"
+	LowReputationMode_ALWAYS_ON         LowReputationMode = "ALWAYS_ON"
 )
 
 type MapMatchScope string
@@ -423,6 +497,7 @@ const (
 	ParameterExceptionField_CUSTOM_REQUEST_HANDLING           ParameterExceptionField = "CUSTOM_REQUEST_HANDLING"
 	ParameterExceptionField_CUSTOM_RESPONSE                   ParameterExceptionField = "CUSTOM_RESPONSE"
 	ParameterExceptionField_CUSTOM_RESPONSE_BODY              ParameterExceptionField = "CUSTOM_RESPONSE_BODY"
+	ParameterExceptionField_DATA_PROTECTION_CONFIG            ParameterExceptionField = "DATA_PROTECTION_CONFIG"
 	ParameterExceptionField_DEFAULT_ACTION                    ParameterExceptionField = "DEFAULT_ACTION"
 	ParameterExceptionField_ENTITY_LIMIT                      ParameterExceptionField = "ENTITY_LIMIT"
 	ParameterExceptionField_EXCLUDED_RULE                     ParameterExceptionField = "EXCLUDED_RULE"
@@ -445,17 +520,22 @@ const (
 	ParameterExceptionField_LABEL_MATCH_STATEMENT             ParameterExceptionField = "LABEL_MATCH_STATEMENT"
 	ParameterExceptionField_LOGGING_FILTER                    ParameterExceptionField = "LOGGING_FILTER"
 	ParameterExceptionField_LOG_DESTINATION                   ParameterExceptionField = "LOG_DESTINATION"
+	ParameterExceptionField_LOW_REPUTATION_MODE               ParameterExceptionField = "LOW_REPUTATION_MODE"
 	ParameterExceptionField_MANAGED_RULE_GROUP_CONFIG         ParameterExceptionField = "MANAGED_RULE_GROUP_CONFIG"
 	ParameterExceptionField_MANAGED_RULE_SET                  ParameterExceptionField = "MANAGED_RULE_SET"
 	ParameterExceptionField_MANAGED_RULE_SET_STATEMENT        ParameterExceptionField = "MANAGED_RULE_SET_STATEMENT"
 	ParameterExceptionField_MAP_MATCH_SCOPE                   ParameterExceptionField = "MAP_MATCH_SCOPE"
 	ParameterExceptionField_METRIC_NAME                       ParameterExceptionField = "METRIC_NAME"
+	ParameterExceptionField_MONETIZATION_CONFIG               ParameterExceptionField = "MONETIZATION_CONFIG"
 	ParameterExceptionField_NOT_STATEMENT                     ParameterExceptionField = "NOT_STATEMENT"
 	ParameterExceptionField_OR_STATEMENT                      ParameterExceptionField = "OR_STATEMENT"
 	ParameterExceptionField_OVERRIDE_ACTION                   ParameterExceptionField = "OVERRIDE_ACTION"
 	ParameterExceptionField_OVERSIZE_HANDLING                 ParameterExceptionField = "OVERSIZE_HANDLING"
 	ParameterExceptionField_PAYLOAD_TYPE                      ParameterExceptionField = "PAYLOAD_TYPE"
+	ParameterExceptionField_PAYMENT_NETWORK                   ParameterExceptionField = "PAYMENT_NETWORK"
 	ParameterExceptionField_POSITION                          ParameterExceptionField = "POSITION"
+	ParameterExceptionField_PRE_PARSE_TEXT_TRANSFORMATION     ParameterExceptionField = "PRE_PARSE_TEXT_TRANSFORMATION"
+	ParameterExceptionField_PRICE_AMOUNT                      ParameterExceptionField = "PRICE_AMOUNT"
 	ParameterExceptionField_RATE_BASED_STATEMENT              ParameterExceptionField = "RATE_BASED_STATEMENT"
 	ParameterExceptionField_REGEX_PATTERN_REFERENCE_STATEMENT ParameterExceptionField = "REGEX_PATTERN_REFERENCE_STATEMENT"
 	ParameterExceptionField_REGEX_PATTERN_SET                 ParameterExceptionField = "REGEX_PATTERN_SET"
@@ -477,6 +557,7 @@ const (
 	ParameterExceptionField_TAG_KEYS                          ParameterExceptionField = "TAG_KEYS"
 	ParameterExceptionField_TEXT_TRANSFORMATION               ParameterExceptionField = "TEXT_TRANSFORMATION"
 	ParameterExceptionField_TOKEN_DOMAIN                      ParameterExceptionField = "TOKEN_DOMAIN"
+	ParameterExceptionField_WALLET_ADDRESS                    ParameterExceptionField = "WALLET_ADDRESS"
 	ParameterExceptionField_WEB_ACL                           ParameterExceptionField = "WEB_ACL"
 	ParameterExceptionField_XSS_MATCH_STATEMENT               ParameterExceptionField = "XSS_MATCH_STATEMENT"
 )
@@ -505,6 +586,31 @@ const (
 	PositionalConstraint_STARTS_WITH   PositionalConstraint = "STARTS_WITH"
 )
 
+type PreParseTextTransformationType string
+
+const (
+	PreParseTextTransformationType_COMBINE_DUPLICATE_QUERY_ARGS_BY_COMMA PreParseTextTransformationType = "COMBINE_DUPLICATE_QUERY_ARGS_BY_COMMA"
+	PreParseTextTransformationType_NONE                                  PreParseTextTransformationType = "NONE"
+	PreParseTextTransformationType_REPLACE_SEMICOLONS_WITH_AMPERSANDS    PreParseTextTransformationType = "REPLACE_SEMICOLONS_WITH_AMPERSANDS"
+	PreParseTextTransformationType_URL_DECODE                            PreParseTextTransformationType = "URL_DECODE"
+	PreParseTextTransformationType_URL_DECODE_UNI                        PreParseTextTransformationType = "URL_DECODE_UNI"
+)
+
+type RankingSortBy string
+
+const (
+	RankingSortBy_NAME       RankingSortBy = "NAME"
+	RankingSortBy_PERCENTAGE RankingSortBy = "PERCENTAGE"
+	RankingSortBy_REVENUE    RankingSortBy = "REVENUE"
+)
+
+type RankingStatisticType string
+
+const (
+	RankingStatisticType_TOP_PATHS_BY_REVENUE   RankingStatisticType = "TOP_PATHS_BY_REVENUE"
+	RankingStatisticType_TOP_SOURCES_BY_REVENUE RankingStatisticType = "TOP_SOURCES_BY_REVENUE"
+)
+
 type RateBasedStatementAggregateKeyType string
 
 const (
@@ -517,6 +623,8 @@ const (
 type ResourceType string
 
 const (
+	ResourceType_AGENTCORE_GATEWAY         ResourceType = "AGENTCORE_GATEWAY"
+	ResourceType_AMPLIFY                   ResourceType = "AMPLIFY"
 	ResourceType_API_GATEWAY               ResourceType = "API_GATEWAY"
 	ResourceType_APPLICATION_LOAD_BALANCER ResourceType = "APPLICATION_LOAD_BALANCER"
 	ResourceType_APPSYNC                   ResourceType = "APPSYNC"
@@ -547,6 +655,34 @@ const (
 	SensitivityLevel_LOW  SensitivityLevel = "LOW"
 )
 
+type SensitivityToAct string
+
+const (
+	SensitivityToAct_HIGH   SensitivityToAct = "HIGH"
+	SensitivityToAct_LOW    SensitivityToAct = "LOW"
+	SensitivityToAct_MEDIUM SensitivityToAct = "MEDIUM"
+)
+
+type SettlementSortBy string
+
+const (
+	SettlementSortBy_AMOUNT    SettlementSortBy = "AMOUNT"
+	SettlementSortBy_NAME      SettlementSortBy = "NAME"
+	SettlementSortBy_STATUS    SettlementSortBy = "STATUS"
+	SettlementSortBy_TIMESTAMP SettlementSortBy = "TIMESTAMP"
+)
+
+type SettlementStatus string
+
+const (
+	SettlementStatus_DUPLICATE            SettlementStatus = "DUPLICATE"
+	SettlementStatus_FAILED               SettlementStatus = "FAILED"
+	SettlementStatus_PENDING              SettlementStatus = "PENDING"
+	SettlementStatus_SERVICE_ERROR        SettlementStatus = "SERVICE_ERROR"
+	SettlementStatus_SETTLED              SettlementStatus = "SETTLED"
+	SettlementStatus_SKIPPED_ORIGIN_ERROR SettlementStatus = "SKIPPED_ORIGIN_ERROR"
+)
+
 type SizeInspectionLimit string
 
 const (
@@ -556,28 +692,59 @@ const (
 	SizeInspectionLimit_KB_64 SizeInspectionLimit = "KB_64"
 )
 
+type SortOrder string
+
+const (
+	SortOrder_ASC  SortOrder = "ASC"
+	SortOrder_DESC SortOrder = "DESC"
+)
+
 type TextTransformationType string
 
 const (
 	TextTransformationType_BASE64_DECODE        TextTransformationType = "BASE64_DECODE"
 	TextTransformationType_BASE64_DECODE_EXT    TextTransformationType = "BASE64_DECODE_EXT"
 	TextTransformationType_CMD_LINE             TextTransformationType = "CMD_LINE"
+	TextTransformationType_CMD_LINE_UNIX        TextTransformationType = "CMD_LINE_UNIX"
+	TextTransformationType_CMD_LINE_WIN         TextTransformationType = "CMD_LINE_WIN"
 	TextTransformationType_COMPRESS_WHITE_SPACE TextTransformationType = "COMPRESS_WHITE_SPACE"
 	TextTransformationType_CSS_DECODE           TextTransformationType = "CSS_DECODE"
 	TextTransformationType_ESCAPE_SEQ_DECODE    TextTransformationType = "ESCAPE_SEQ_DECODE"
 	TextTransformationType_HEX_DECODE           TextTransformationType = "HEX_DECODE"
 	TextTransformationType_HTML_ENTITY_DECODE   TextTransformationType = "HTML_ENTITY_DECODE"
 	TextTransformationType_JS_DECODE            TextTransformationType = "JS_DECODE"
+	TextTransformationType_JS_DECODE_EXT        TextTransformationType = "JS_DECODE_EXT"
 	TextTransformationType_LOWERCASE            TextTransformationType = "LOWERCASE"
 	TextTransformationType_MD5                  TextTransformationType = "MD5"
 	TextTransformationType_NONE                 TextTransformationType = "NONE"
 	TextTransformationType_NORMALIZE_PATH       TextTransformationType = "NORMALIZE_PATH"
 	TextTransformationType_NORMALIZE_PATH_WIN   TextTransformationType = "NORMALIZE_PATH_WIN"
+	TextTransformationType_REMOVE_COMMENTS_CHAR TextTransformationType = "REMOVE_COMMENTS_CHAR"
 	TextTransformationType_REMOVE_NULLS         TextTransformationType = "REMOVE_NULLS"
+	TextTransformationType_REMOVE_WHITESPACE    TextTransformationType = "REMOVE_WHITESPACE"
 	TextTransformationType_REPLACE_COMMENTS     TextTransformationType = "REPLACE_COMMENTS"
 	TextTransformationType_REPLACE_NULLS        TextTransformationType = "REPLACE_NULLS"
+	TextTransformationType_SHA256               TextTransformationType = "SHA256"
 	TextTransformationType_SQL_HEX_DECODE       TextTransformationType = "SQL_HEX_DECODE"
+	TextTransformationType_TRIM                 TextTransformationType = "TRIM"
+	TextTransformationType_TRIM_LEFT            TextTransformationType = "TRIM_LEFT"
+	TextTransformationType_TRIM_RIGHT           TextTransformationType = "TRIM_RIGHT"
+	TextTransformationType_UPPERCASE            TextTransformationType = "UPPERCASE"
 	TextTransformationType_URL_DECODE           TextTransformationType = "URL_DECODE"
 	TextTransformationType_URL_DECODE_UNI       TextTransformationType = "URL_DECODE_UNI"
 	TextTransformationType_UTF8_TO_UNICODE      TextTransformationType = "UTF8_TO_UNICODE"
+)
+
+type TimeSeriesStatisticType string
+
+const (
+	TimeSeriesStatisticType_DATE_HISTOGRAM  TimeSeriesStatisticType = "DATE_HISTOGRAM"
+	TimeSeriesStatisticType_PAYMENT_TRAFFIC TimeSeriesStatisticType = "PAYMENT_TRAFFIC"
+)
+
+type UsageOfAction string
+
+const (
+	UsageOfAction_DISABLED UsageOfAction = "DISABLED"
+	UsageOfAction_ENABLED  UsageOfAction = "ENABLED"
 )
