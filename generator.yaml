@@ -138,6 +138,12 @@ resources:
         from:
           operation: PutLoggingConfiguration
           path: LoggingConfiguration
+      LoggingConfiguration.LogScope:
+        late_initialize:
+          skip_incomplete_check: {}
+      LoggingConfiguration.ManagedByFirewallManager:
+        late_initialize:
+          skip_incomplete_check: {}
     hooks:
       sdk_read_one_pre_build_request:
         template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
