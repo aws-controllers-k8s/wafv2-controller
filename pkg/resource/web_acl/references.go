@@ -17,9 +17,15 @@ package web_acl
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
+	ackrt "github.com/aws-controllers-k8s/runtime/pkg/runtime"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
 
 	svcapitypes "github.com/aws-controllers-k8s/wafv2-controller/apis/v1alpha1"
@@ -31,6 +37,26 @@ import (
 // values.
 func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) acktypes.AWSResource {
 	ko := rm.concreteResource(res).ko.DeepCopy()
+
+	for f0idx, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.IPSetReferenceStatement != nil {
+				if f0iter.Statement.IPSetReferenceStatement.IPSetRef != nil {
+					ko.Spec.Rules[f0idx].Statement.IPSetReferenceStatement.ARN = nil
+				}
+			}
+		}
+	}
+
+	for f0idx, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.RuleGroupReferenceStatement != nil {
+				if f0iter.Statement.RuleGroupReferenceStatement.RuleGroupRef != nil {
+					ko.Spec.Rules[f0idx].Statement.RuleGroupReferenceStatement.ARN = nil
+				}
+			}
+		}
+	}
 
 	return &resource{ko}
 }
@@ -47,11 +73,235 @@ func (rm *resourceManager) ResolveReferences(
 	apiReader client.Reader,
 	res acktypes.AWSResource,
 ) (acktypes.AWSResource, bool, error) {
-	return res, false, nil
+	ko := rm.concreteResource(res).ko
+
+	resourceHasReferences := false
+	err := validateReferenceFields(ko)
+	if fieldHasReferences, err := rm.resolveReferenceForRules_Statement_IPSetReferenceStatement_ARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
+	if fieldHasReferences, err := rm.resolveReferenceForRules_Statement_RuleGroupReferenceStatement_ARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
+	return &resource{ko}, resourceHasReferences, err
 }
 
 // validateReferenceFields validates the reference field and corresponding
 // identifier field.
 func validateReferenceFields(ko *svcapitypes.WebACL) error {
+
+	for _, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.IPSetReferenceStatement != nil {
+				if f0iter.Statement.IPSetReferenceStatement.IPSetRef != nil && f0iter.Statement.IPSetReferenceStatement.ARN != nil {
+					return ackerr.ResourceReferenceAndIDNotSupportedFor("Rules.Statement.IPSetReferenceStatement.ARN", "Rules.Statement.IPSetReferenceStatement.IPSetRef")
+				}
+			}
+		}
+	}
+
+	for _, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.RuleGroupReferenceStatement != nil {
+				if f0iter.Statement.RuleGroupReferenceStatement.RuleGroupRef != nil && f0iter.Statement.RuleGroupReferenceStatement.ARN != nil {
+					return ackerr.ResourceReferenceAndIDNotSupportedFor("Rules.Statement.RuleGroupReferenceStatement.ARN", "Rules.Statement.RuleGroupReferenceStatement.RuleGroupRef")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// resolveReferenceForRules_Statement_IPSetReferenceStatement_ARN reads the resource referenced
+// from Rules.Statement.IPSetReferenceStatement.IPSetRef field and sets the Rules.Statement.IPSetReferenceStatement.ARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForRules_Statement_IPSetReferenceStatement_ARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.WebACL,
+) (hasReferences bool, err error) {
+	for f0idx, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.IPSetReferenceStatement != nil {
+				if f0iter.Statement.IPSetReferenceStatement.IPSetRef != nil && f0iter.Statement.IPSetReferenceStatement.IPSetRef.From != nil {
+					hasReferences = true
+					arr := f0iter.Statement.IPSetReferenceStatement.IPSetRef.From
+					if arr.Name == nil || *arr.Name == "" {
+						return hasReferences, fmt.Errorf("provided resource reference is nil or empty: Rules.Statement.IPSetReferenceStatement.IPSetRef")
+					}
+					namespace, _, err := ackrt.ValidateCrossNamespaceReference(
+						rm.cfg.EnableCrossNamespace,
+						ko.ObjectMeta.GetNamespace(),
+						arr.Namespace,
+						*arr.Name,
+					)
+					if err != nil {
+						return hasReferences, err
+					}
+					obj := &svcapitypes.IPSet{}
+					if err := getReferencedResourceState_IPSet(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+						return hasReferences, err
+					}
+					ko.Spec.Rules[f0idx].Statement.IPSetReferenceStatement.ARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+				}
+			}
+		}
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_IPSet looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_IPSet(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *svcapitypes.IPSet,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"IPSet",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"IPSet",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"IPSet",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"IPSet",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
+	}
+	return nil
+}
+
+// resolveReferenceForRules_Statement_RuleGroupReferenceStatement_ARN reads the resource referenced
+// from Rules.Statement.RuleGroupReferenceStatement.RuleGroupRef field and sets the Rules.Statement.RuleGroupReferenceStatement.ARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForRules_Statement_RuleGroupReferenceStatement_ARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.WebACL,
+) (hasReferences bool, err error) {
+	for f0idx, f0iter := range ko.Spec.Rules {
+		if f0iter.Statement != nil {
+			if f0iter.Statement.RuleGroupReferenceStatement != nil {
+				if f0iter.Statement.RuleGroupReferenceStatement.RuleGroupRef != nil && f0iter.Statement.RuleGroupReferenceStatement.RuleGroupRef.From != nil {
+					hasReferences = true
+					arr := f0iter.Statement.RuleGroupReferenceStatement.RuleGroupRef.From
+					if arr.Name == nil || *arr.Name == "" {
+						return hasReferences, fmt.Errorf("provided resource reference is nil or empty: Rules.Statement.RuleGroupReferenceStatement.RuleGroupRef")
+					}
+					namespace, _, err := ackrt.ValidateCrossNamespaceReference(
+						rm.cfg.EnableCrossNamespace,
+						ko.ObjectMeta.GetNamespace(),
+						arr.Namespace,
+						*arr.Name,
+					)
+					if err != nil {
+						return hasReferences, err
+					}
+					obj := &svcapitypes.RuleGroup{}
+					if err := getReferencedResourceState_RuleGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+						return hasReferences, err
+					}
+					ko.Spec.Rules[f0idx].Statement.RuleGroupReferenceStatement.ARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+				}
+			}
+		}
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_RuleGroup looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_RuleGroup(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *svcapitypes.RuleGroup,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"RuleGroup",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"RuleGroup",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"RuleGroup",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"RuleGroup",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
+	}
 	return nil
 }

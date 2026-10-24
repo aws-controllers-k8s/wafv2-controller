@@ -84,6 +84,10 @@ resources:
           - ignore: "all"
       Rules.Statement.ByteMatchStatement.TextTransformations.Type:
         go_tag: json:"type,omitempty"
+      Rules.Statement.IPSetReferenceStatement.ARN:
+        references:
+          resource: IPSet
+          path: Status.ACKResourceMetadata.ARN
     hooks:
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
@@ -134,6 +138,14 @@ resources:
         type: string
         set:
           - ignore: "all"
+      Rules.Statement.IPSetReferenceStatement.ARN:
+        references:
+          resource: IPSet
+          path: Status.ACKResourceMetadata.ARN
+      Rules.Statement.RuleGroupReferenceStatement.ARN:
+        references:
+          resource: RuleGroup
+          path: Status.ACKResourceMetadata.ARN
       LoggingConfiguration:
         from:
           operation: PutLoggingConfiguration

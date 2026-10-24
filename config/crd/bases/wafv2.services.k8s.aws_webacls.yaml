@@ -1386,6 +1386,20 @@ spec:
                                 position:
                                   type: string
                               type: object
+                            ipSetRef:
+                              description: Reference field for ARN
+                              properties:
+                                from:
+                                  description: |-
+                                    AWSResourceReference provides all the values necessary to reference another
+                                    k8s resource for finding the identifier(Id/ARN/Name)
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                  type: object
+                              type: object
                           type: object
                         labelMatchStatement:
                           description: |-
@@ -3276,6 +3290,20 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            ruleGroupRef:
+                              description: Reference field for ARN
+                              properties:
+                                from:
+                                  description: |-
+                                    AWSResourceReference provides all the values necessary to reference another
+                                    k8s resource for finding the identifier(Id/ARN/Name)
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                  type: object
+                              type: object
                           type: object
                         sizeConstraintStatement:
                           properties:
