@@ -93,6 +93,16 @@ spec:
                       type: object
                     type: object
                 type: object
+              associations:
+                description: Associate a web ACL with resources, to protect them.
+                items:
+                  properties:
+                    resourceARN:
+                      description: The Amazon Resource Name (ARN) of the resource
+                        to associate with the web ACL.
+                      type: string
+                  type: object
+                type: array
               captchaConfig:
                 description: |-
                   Specifies how WAF should handle CAPTCHA evaluations for rules that don't

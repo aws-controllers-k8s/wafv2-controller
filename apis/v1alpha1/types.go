@@ -150,6 +150,11 @@ type AllowAction struct {
 	CustomRequestHandling *CustomRequestHandling `json:"customRequestHandling,omitempty"`
 }
 
+type AssociateWebACLInput struct {
+	// The Amazon Resource Name (ARN) of the resource to associate with the web ACL.
+	ResourceARN *string `json:"resourceARN,omitempty"`
+}
+
 // Specifies custom configurations for the associations between the web ACL
 // and protected resources.
 //

@@ -41,6 +41,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customPreCompare(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.Capacity, b.ko.Spec.Capacity) {
 		delta.Add("Spec.Capacity", a.ko.Spec.Capacity, b.ko.Spec.Capacity)
@@ -68,13 +69,6 @@ func newResourceDelta(
 	} else if a.ko.Spec.Name != nil && b.ko.Spec.Name != nil {
 		if *a.ko.Spec.Name != *b.ko.Spec.Name {
 			delta.Add("Spec.Name", a.ko.Spec.Name, b.ko.Spec.Name)
-		}
-	}
-	if len(a.ko.Spec.Rules) != len(b.ko.Spec.Rules) {
-		delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
-	} else if len(a.ko.Spec.Rules) > 0 {
-		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Rules, b.ko.Spec.Rules) {
-			delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Scope, b.ko.Spec.Scope) {

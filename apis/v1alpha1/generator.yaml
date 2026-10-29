@@ -6,6 +6,7 @@ ignore:
     # - RuleGroup
     # - WebACL
   field_paths:
+    - AssociateWebACLInput.WebACLArn
     - RuleGroup.Rules.Statement.AndStatement
     - RuleGroup.Rules.Statement.OrStatement
     - RuleGroup.Rules.Statement.NotStatement
@@ -62,6 +63,9 @@ resources:
         is_immutable: true
       Capacity:
         is_immutable: true
+      Rules:
+        compare:
+          is_ignored: true
       Rules.Statement.AndStatement:
         type: string
         set:
@@ -89,6 +93,8 @@ resources:
           resource: IPSet
           path: Status.ACKResourceMetadata.ARN
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
@@ -105,6 +111,9 @@ resources:
         404:
           code: WAFNonexistentItemException
     fields:
+      Associations:
+        custom_field:
+          list_of: AssociateWebACLInput
       Capacity:
         is_read_only: true
         from:
@@ -118,6 +127,9 @@ resources:
       Name:
         is_primary_key: true
         is_immutable: true
+      Rules:
+        compare:
+          is_ignored: true
       Rules.Statement.AndStatement:
         type: string
         set:
@@ -163,6 +175,8 @@ resources:
         late_initialize:
           skip_incomplete_check: {}
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_one_pre_build_request:
         template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
