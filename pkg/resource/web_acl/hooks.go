@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
@@ -414,4 +415,33 @@ func customSetOutputGetLoggingConfiguration(
 		}
 	}
 	return nil
+}
+
+// customPreCompare compares Spec.Rules ignoring the *Ref fields, which sdkFind
+// cannot rebuild from GetWebACL/GetRuleGroup. The resolved ARNs are still
+// compared, so real drift is still detected.
+func customPreCompare(delta *ackcompare.Delta, a, b *resource) {
+	if !equality.Semantic.DeepEqual(rulesWithoutRefs(a.ko.Spec.Rules), rulesWithoutRefs(b.ko.Spec.Rules)) {
+		delta.Add("Spec.Rules", a.ko.Spec.Rules, b.ko.Spec.Rules)
+	}
+}
+
+func rulesWithoutRefs(rules []*svcapitypes.Rule) []*svcapitypes.Rule {
+	out := make([]*svcapitypes.Rule, len(rules))
+	for i, r := range rules {
+		if r == nil {
+			continue
+		}
+		c := r.DeepCopy()
+		if c.Statement != nil {
+			if s := c.Statement.IPSetReferenceStatement; s != nil {
+				s.IPSetRef = nil
+			}
+			if s := c.Statement.RuleGroupReferenceStatement; s != nil {
+				s.RuleGroupRef = nil
+			}
+		}
+		out[i] = c
+	}
+	return out
 }

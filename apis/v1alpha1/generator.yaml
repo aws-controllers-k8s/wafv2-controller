@@ -62,6 +62,9 @@ resources:
         is_immutable: true
       Capacity:
         is_immutable: true
+      Rules:
+        compare:
+          is_ignored: true
       Rules.Statement.AndStatement:
         type: string
         set:
@@ -89,6 +92,8 @@ resources:
           resource: IPSet
           path: Status.ACKResourceMetadata.ARN
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_one_pre_build_request:
         template_path: hooks/rulegroup/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
@@ -118,6 +123,9 @@ resources:
       Name:
         is_primary_key: true
         is_immutable: true
+      Rules:
+        compare:
+          is_ignored: true
       Rules.Statement.AndStatement:
         type: string
         set:
@@ -151,6 +159,8 @@ resources:
           operation: PutLoggingConfiguration
           path: LoggingConfiguration
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_one_pre_build_request:
         template_path: hooks/webacl/sdk_read_one_pre_build_request.go.tpl
       sdk_read_one_post_set_output:
