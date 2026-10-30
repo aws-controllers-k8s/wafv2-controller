@@ -272,6 +272,14 @@ class TestWebACL:
 
         latest = web_acl.get_web_acl(web_acl_name, web_acl_id)
         assert latest is not None
+
+        # The fixture leaves the server-filled logging fields unset; once
+        # synced the spec carries them, so later resyncs have nothing to put
+        logging_spec = cr["spec"]["loggingConfiguration"]
+        assert logging_spec["logScope"] == "CUSTOMER"
+        assert logging_spec["logType"] == "WAF_LOGS"
+        assert logging_spec["managedByFirewallManager"] is False
+        assert logging_spec["resourceARN"] == cr["status"]["ackResourceMetadata"]["arn"]
         
         # Check logging configuration is present
         logging_config = None

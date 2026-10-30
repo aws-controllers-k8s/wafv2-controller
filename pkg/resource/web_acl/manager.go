@@ -50,7 +50,7 @@ var (
 // +kubebuilder:rbac:groups=wafv2.services.k8s.aws,resources=webacls,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=wafv2.services.k8s.aws,resources=webacls/status,verbs=get;update;patch
 
-var lateInitializeFieldNames = []string{}
+var lateInitializeFieldNames = []string{"LogScope", "LogType", "ManagedByFirewallManager", "ResourceARN"}
 
 // resourceManager is responsible for providing a consistent way to perform
 // CRUD operations in a backend AWS service API for Book custom resources.
@@ -260,7 +260,29 @@ func (rm *resourceManager) lateInitializeFromReadOneOutput(
 	observed acktypes.AWSResource,
 	latest acktypes.AWSResource,
 ) acktypes.AWSResource {
-	return latest
+	observedKo := rm.concreteResource(observed).ko.DeepCopy()
+	latestKo := rm.concreteResource(latest).ko.DeepCopy()
+	if observedKo.Spec.LoggingConfiguration != nil && latestKo.Spec.LoggingConfiguration != nil {
+		if observedKo.Spec.LoggingConfiguration.LogScope != nil && latestKo.Spec.LoggingConfiguration.LogScope == nil {
+			latestKo.Spec.LoggingConfiguration.LogScope = observedKo.Spec.LoggingConfiguration.LogScope
+		}
+	}
+	if observedKo.Spec.LoggingConfiguration != nil && latestKo.Spec.LoggingConfiguration != nil {
+		if observedKo.Spec.LoggingConfiguration.LogType != nil && latestKo.Spec.LoggingConfiguration.LogType == nil {
+			latestKo.Spec.LoggingConfiguration.LogType = observedKo.Spec.LoggingConfiguration.LogType
+		}
+	}
+	if observedKo.Spec.LoggingConfiguration != nil && latestKo.Spec.LoggingConfiguration != nil {
+		if observedKo.Spec.LoggingConfiguration.ManagedByFirewallManager != nil && latestKo.Spec.LoggingConfiguration.ManagedByFirewallManager == nil {
+			latestKo.Spec.LoggingConfiguration.ManagedByFirewallManager = observedKo.Spec.LoggingConfiguration.ManagedByFirewallManager
+		}
+	}
+	if observedKo.Spec.LoggingConfiguration != nil && latestKo.Spec.LoggingConfiguration != nil {
+		if observedKo.Spec.LoggingConfiguration.ResourceARN != nil && latestKo.Spec.LoggingConfiguration.ResourceARN == nil {
+			latestKo.Spec.LoggingConfiguration.ResourceARN = observedKo.Spec.LoggingConfiguration.ResourceARN
+		}
+	}
+	return &resource{latestKo}
 }
 
 // IsSynced returns true if the resource is synced.
