@@ -150,6 +150,11 @@ type AllowAction struct {
 	CustomRequestHandling *CustomRequestHandling `json:"customRequestHandling,omitempty"`
 }
 
+type AssociateWebACLInput struct {
+	// The Amazon Resource Name (ARN) of the resource to associate with the web ACL.
+	ResourceARN *string `json:"resourceARN,omitempty"`
+}
+
 // Specifies custom configurations for the associations between the web ACL
 // and protected resources.
 //
@@ -816,6 +821,8 @@ type IPSetReferenceStatement struct {
 	// This configuration is used only for IPSetReferenceStatement. For GeoMatchStatement
 	// and RateBasedStatement, use ForwardedIPConfig instead.
 	IPSetForwardedIPConfig *IPSetForwardedIPConfig `json:"ipSetForwardedIPConfig,omitempty"`
+	// Reference field for ARN
+	IPSetRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"ipSetRef,omitempty"`
 }
 
 // High-level information about an IPSet, returned by operations like create
@@ -1915,6 +1922,8 @@ type RuleGroupReferenceStatement struct {
 	ARN                 *string               `json:"arn,omitempty"`
 	ExcludedRules       []*ExcludedRule       `json:"excludedRules,omitempty"`
 	RuleActionOverrides []*RuleActionOverride `json:"ruleActionOverrides,omitempty"`
+	// Reference field for ARN
+	RuleGroupRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"ruleGroupRef,omitempty"`
 }
 
 // High-level information about a RuleGroup, returned by operations like create

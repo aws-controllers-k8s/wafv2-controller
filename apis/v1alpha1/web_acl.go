@@ -50,6 +50,8 @@ type WebACLSpec struct {
 	// For Application Load Balancer and AppSync, the limit is fixed at 8 KB (8,192
 	// bytes).
 	AssociationConfig *AssociationConfig `json:"associationConfig,omitempty"`
+	// Associate a web ACL with resources, to protect them.
+	Associations []*AssociateWebACLInput `json:"associations,omitempty"`
 	// Specifies how WAF should handle CAPTCHA evaluations for rules that don't
 	// have their own CaptchaConfig settings. If you don't specify this, WAF uses
 	// its default settings for CaptchaConfig.

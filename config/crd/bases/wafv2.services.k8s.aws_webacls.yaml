@@ -93,6 +93,16 @@ spec:
                       type: object
                     type: object
                 type: object
+              associations:
+                description: Associate a web ACL with resources, to protect them.
+                items:
+                  properties:
+                    resourceARN:
+                      description: The Amazon Resource Name (ARN) of the resource
+                        to associate with the web ACL.
+                      type: string
+                  type: object
+                type: array
               captchaConfig:
                 description: |-
                   Specifies how WAF should handle CAPTCHA evaluations for rules that don't
@@ -1385,6 +1395,20 @@ spec:
                                   type: string
                                 position:
                                   type: string
+                              type: object
+                            ipSetRef:
+                              description: Reference field for ARN
+                              properties:
+                                from:
+                                  description: |-
+                                    AWSResourceReference provides all the values necessary to reference another
+                                    k8s resource for finding the identifier(Id/ARN/Name)
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                  type: object
                               type: object
                           type: object
                         labelMatchStatement:
@@ -3276,6 +3300,20 @@ spec:
                                     type: string
                                 type: object
                               type: array
+                            ruleGroupRef:
+                              description: Reference field for ARN
+                              properties:
+                                from:
+                                  description: |-
+                                    AWSResourceReference provides all the values necessary to reference another
+                                    k8s resource for finding the identifier(Id/ARN/Name)
+                                  properties:
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                  type: object
+                              type: object
                           type: object
                         sizeConstraintStatement:
                           properties:
