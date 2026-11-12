@@ -112,16 +112,22 @@ func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) erro
 		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: name"))
 	}
 	r.ko.Spec.Name = &primaryKey
-	f0, ok := fields["id"]
-	if !ok {
+
+	f0, f0ok := fields["id"]
+	if f0ok {
+		r.ko.Status.ID = aws.String(f0)
+	}
+	f2, f2ok := fields["scope"]
+	if f2ok {
+		r.ko.Spec.Scope = aws.String(f2)
+	}
+
+	if _, ok := fields["id"]; !ok {
 		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: id"))
 	}
-	r.ko.Status.ID = &f0
-	f2, ok := fields["scope"]
-	if !ok {
+	if _, ok := fields["scope"]; !ok {
 		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: scope"))
 	}
-	r.ko.Spec.Scope = &f2
 
 	return nil
 }

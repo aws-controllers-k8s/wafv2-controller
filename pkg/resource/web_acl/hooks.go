@@ -415,3 +415,10 @@ func customSetOutputGetLoggingConfiguration(
 	}
 	return nil
 }
+
+// customCheckRequiredFieldsMissing requires Name, Scope, and ID.
+func (rm *resourceManager) customCheckRequiredFieldsMissing(
+	r *resource,
+) bool {
+	return r.ko.Spec.Name == nil || r.ko.Spec.Scope == nil || r.ko.Status.ID == nil
+}

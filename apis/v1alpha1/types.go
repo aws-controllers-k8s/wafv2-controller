@@ -39,6 +39,11 @@ type APIKeySummary struct {
 
 // Details for your use of the account creation fraud prevention managed rule
 // group, AWSManagedRulesACFPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+//
+// For additional information about this and the other intelligent threat mitigation
+// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+// in the WAF Developer Guide.
 type AWSManagedRulesACFPRuleSet struct {
 	CreationPath         *string `json:"creationPath,omitempty"`
 	EnableRegexInPath    *bool   `json:"enableRegexInPath,omitempty"`
@@ -78,6 +83,11 @@ type AWSManagedRulesACFPRuleSet struct {
 
 // Details for your use of the account takeover prevention managed rule group,
 // AWSManagedRulesATPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+//
+// For additional information about this and the other intelligent threat mitigation
+// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+// in the WAF Developer Guide.
 type AWSManagedRulesATPRuleSet struct {
 	EnableRegexInPath *bool   `json:"enableRegexInPath,omitempty"`
 	LoginPath         *string `json:"loginPath,omitempty"`
@@ -113,8 +123,30 @@ type AWSManagedRulesATPRuleSet struct {
 	ResponseInspection *ResponseInspection `json:"responseInspection,omitempty"`
 }
 
+// Configures the use of the anti-DDoS managed rule group, AWSManagedRulesAntiDDoSRuleSet.
+// This configuration is used in ManagedRuleGroupConfig.
+//
+// The configuration that you provide here determines whether and how the rules
+// in the rule group are used.
+//
+// For additional information about this and the other intelligent threat mitigation
+// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+// in the WAF Developer Guide.
+type AWSManagedRulesAntiDDoSRuleSet struct {
+	// This is part of the configuration for the managed rules AWSManagedRulesAntiDDoSRuleSet
+	// in ManagedRuleGroupConfig.
+	ClientSideActionConfig *ClientSideActionConfig `json:"clientSideActionConfig,omitempty"`
+	SensitivityToBlock     *string                 `json:"sensitivityToBlock,omitempty"`
+}
+
 // Details for your use of the Bot Control managed rule group, AWSManagedRulesBotControlRuleSet.
 // This configuration is used in ManagedRuleGroupConfig.
+//
+// For additional information about this and the other intelligent threat mitigation
+// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+// in the WAF Developer Guide.
 type AWSManagedRulesBotControlRuleSet struct {
 	EnableMachineLearning *bool   `json:"enableMachineLearning,omitempty"`
 	InspectionLevel       *string `json:"inspectionLevel,omitempty"`
@@ -220,9 +252,9 @@ type ByteMatchStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch         *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	PositionalConstraint *string               `json:"positionalConstraint,omitempty"`
 	SearchString         []byte                `json:"searchString,omitempty"`
@@ -320,6 +352,22 @@ type ChallengeConfig struct {
 	// or challenge timestamp remains valid after WAF updates it for a successful
 	// CAPTCHA or challenge response.
 	ImmunityTimeProperty *ImmunityTimeProperty `json:"immunityTimeProperty,omitempty"`
+}
+
+// This is part of the AWSManagedRulesAntiDDoSRuleSet ClientSideActionConfig
+// configuration in ManagedRuleGroupConfig.
+type ClientSideAction struct {
+	ExemptURIRegularExpressions []*Regex `json:"exemptURIRegularExpressions,omitempty"`
+	Sensitivity                 *string  `json:"sensitivity,omitempty"`
+	UsageOfAction               *string  `json:"usageOfAction,omitempty"`
+}
+
+// This is part of the configuration for the managed rules AWSManagedRulesAntiDDoSRuleSet
+// in ManagedRuleGroupConfig.
+type ClientSideActionConfig struct {
+	// This is part of the AWSManagedRulesAntiDDoSRuleSet ClientSideActionConfig
+	// configuration in ManagedRuleGroupConfig.
+	Challenge *ClientSideAction `json:"challenge,omitempty"`
 }
 
 // A single match condition for a Filter.
@@ -425,6 +473,13 @@ type CustomResponseBody struct {
 	ContentType *string `json:"contentType,omitempty"`
 }
 
+// Specifies the protection behavior for a field type. This is part of the data
+// protection configuration for a web ACL.
+type DataProtection struct {
+	ExcludeRateBasedDetails *bool `json:"excludeRateBasedDetails,omitempty"`
+	ExcludeRuleMatchDetails *bool `json:"excludeRuleMatchDetails,omitempty"`
+}
+
 // In a WebACL, this is the action that you want WAF to perform when a web request
 // doesn't match any of the rules in the WebACL. The default action must be
 // a terminating action.
@@ -481,9 +536,9 @@ type ExcludedRule struct {
 //     individual fields talk about specifying the web request component to inspect,
 //     but for field redaction, you are specifying the component type to redact
 //     from the logs. If you have request sampling enabled, the redacted fields
-//     configuration for logging has no impact on sampling. The only way to exclude
-//     fields from request sampling is by disabling sampling in the web ACL visibility
-//     configuration.
+//     configuration for logging has no impact on sampling. You can only exclude
+//     fields from request sampling by disabling sampling in the web ACL visibility
+//     configuration or by configuring data protection for the web ACL.
 type FieldToMatch struct {
 	// Inspect all query arguments of the web request.
 	//
@@ -674,8 +729,9 @@ type FirewallManagerStatement struct {
 // If the specified header isn't present in the request, WAF doesn't apply the
 // rule to the web request at all.
 //
-// This configuration is used for GeoMatchStatement and RateBasedStatement.
-// For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
+// This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+// RateBasedStatement. For IPSetReferenceStatement, use IPSetForwardedIPConfig
+// instead.
 //
 // WAF only evaluates the first IP address found in the specified HTTP header.
 type ForwardedIPConfig struct {
@@ -719,8 +775,9 @@ type GeoMatchStatement struct {
 	// If the specified header isn't present in the request, WAF doesn't apply the
 	// rule to the web request at all.
 	//
-	// This configuration is used for GeoMatchStatement and RateBasedStatement.
-	// For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
+	// This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+	// RateBasedStatement. For IPSetReferenceStatement, use IPSetForwardedIPConfig
+	// instead.
 	//
 	// WAF only evaluates the first IP address found in the specified HTTP header.
 	ForwardedIPConfig *ForwardedIPConfig `json:"forwardedIPConfig,omitempty"`
@@ -962,6 +1019,9 @@ type LabelSummary struct {
 // the standard logging fields to keep out of the logs and you can specify filters
 // so that you log only a subset of the logging records.
 //
+// If you configure data protection for the web ACL, the protection applies
+// to the data that WAF sends to the logs.
+//
 // You can define one logging destination per web ACL.
 //
 // You can access information about the traffic that WAF inspects using the
@@ -1039,6 +1099,12 @@ type ManagedProductDescriptor struct {
 //     locations in the account creation request payload of data, such as the
 //     user email and phone number fields.
 //
+//   - Use the AWSManagedRulesAntiDDoSRuleSet configuration object to configure
+//     the anti-DDoS managed rule group. The configuration includes the sensitivity
+//     levels to use in the rules that typically block and challenge requests
+//     that might be participating in DDoS attacks and the specification to use
+//     to indicate whether a request can handle a silent browser challenge.
+//
 //   - Use the AWSManagedRulesATPRuleSet configuration object to configure
 //     the account takeover prevention managed rule group. The configuration
 //     includes the sign-in page of your application and the locations in the
@@ -1051,12 +1117,38 @@ type ManagedProductDescriptor struct {
 type ManagedRuleGroupConfig struct {
 	// Details for your use of the account creation fraud prevention managed rule
 	// group, AWSManagedRulesACFPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+	//
+	// For additional information about this and the other intelligent threat mitigation
+	// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+	// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+	// in the WAF Developer Guide.
 	AWSManagedRulesACFPRuleSet *AWSManagedRulesACFPRuleSet `json:"awsManagedRulesACFPRuleSet,omitempty"`
 	// Details for your use of the account takeover prevention managed rule group,
 	// AWSManagedRulesATPRuleSet. This configuration is used in ManagedRuleGroupConfig.
+	//
+	// For additional information about this and the other intelligent threat mitigation
+	// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+	// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+	// in the WAF Developer Guide.
 	AWSManagedRulesATPRuleSet *AWSManagedRulesATPRuleSet `json:"awsManagedRulesATPRuleSet,omitempty"`
+	// Configures the use of the anti-DDoS managed rule group, AWSManagedRulesAntiDDoSRuleSet.
+	// This configuration is used in ManagedRuleGroupConfig.
+	//
+	// The configuration that you provide here determines whether and how the rules
+	// in the rule group are used.
+	//
+	// For additional information about this and the other intelligent threat mitigation
+	// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+	// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+	// in the WAF Developer Guide.
+	AWSManagedRulesAntiDDoSRuleSet *AWSManagedRulesAntiDDoSRuleSet `json:"awsManagedRulesAntiDDoSRuleSet,omitempty"`
 	// Details for your use of the Bot Control managed rule group, AWSManagedRulesBotControlRuleSet.
 	// This configuration is used in ManagedRuleGroupConfig.
+	//
+	// For additional information about this and the other intelligent threat mitigation
+	// rule groups, see Intelligent threat mitigation in WAF (https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections)
+	// and Amazon Web Services Managed Rules rule groups list (https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list)
+	// in the WAF Developer Guide.
 	AWSManagedRulesBotControlRuleSet *AWSManagedRulesBotControlRuleSet `json:"awsManagedRulesBotControlRuleSet,omitempty"`
 	LoginPath                        *string                           `json:"loginPath,omitempty"`
 	// The name of the field in the request payload that contains your customer's
@@ -1331,8 +1423,9 @@ type RateBasedStatement struct {
 	// If the specified header isn't present in the request, WAF doesn't apply the
 	// rule to the web request at all.
 	//
-	// This configuration is used for GeoMatchStatement and RateBasedStatement.
-	// For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
+	// This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+	// RateBasedStatement. For IPSetReferenceStatement, use IPSetForwardedIPConfig
+	// instead.
 	//
 	// WAF only evaluates the first IP address found in the specified HTTP header.
 	ForwardedIPConfig  *ForwardedIPConfig `json:"forwardedIPConfig,omitempty"`
@@ -1499,7 +1592,8 @@ type RateLimitURIPath struct {
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
 }
 
-// A single regular expression. This is used in a RegexPatternSet.
+// A single regular expression. This is used in a RegexPatternSet and also in
+// the configuration for the Amazon Web Services Managed Rules rule group AWSManagedRulesAntiDDoSRuleSet.
 type Regex struct {
 	RegexString *string `json:"regexString,omitempty"`
 }
@@ -1528,9 +1622,9 @@ type RegexMatchStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	RegexString         *string               `json:"regexString,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -1541,10 +1635,11 @@ type RegexMatchStatement struct {
 // WAF assigns an ARN to each RegexPatternSet that you create. To use a set
 // in a rule, you provide the ARN to the Rule statement RegexPatternSetReferenceStatement.
 type RegexPatternSet struct {
-	ARN         *string `json:"arn,omitempty"`
-	Description *string `json:"description,omitempty"`
-	ID          *string `json:"id,omitempty"`
-	Name        *string `json:"name,omitempty"`
+	ARN                   *string  `json:"arn,omitempty"`
+	Description           *string  `json:"description,omitempty"`
+	ID                    *string  `json:"id,omitempty"`
+	Name                  *string  `json:"name,omitempty"`
+	RegularExpressionList []*Regex `json:"regularExpressionList,omitempty"`
 }
 
 // A rule statement used to search web request components for matches with regular
@@ -1581,9 +1676,9 @@ type RegexPatternSetReferenceStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
 }
@@ -1891,6 +1986,12 @@ type RuleAction struct {
 // the rule group. You specify one override for each rule whose action you want
 // to change.
 //
+// Verify the rule names in your overrides carefully. With managed rule groups,
+// WAF silently ignores any override that uses an invalid rule name. With customer-owned
+// rule groups, invalid rule names in your overrides will cause web ACL updates
+// to fail. An invalid rule name is any name that doesn't exactly match the
+// case-sensitive name of an existing rule in the rule group.
+//
 // You can use overrides for testing, for example you can override all of rule
 // actions to Count and then monitor the resulting count metrics to understand
 // how the rule group would handle your web traffic. You can also permanently
@@ -1985,9 +2086,9 @@ type SQLIMatchStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	SensitivityLevel    *string               `json:"sensitivityLevel,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -2001,6 +2102,13 @@ type SampledHTTPRequest struct {
 	Labels                  []*Label `json:"labels,omitempty"`
 	ResponseCodeSent        *int64   `json:"responseCodeSent,omitempty"`
 	RuleNameWithinRuleGroup *string  `json:"ruleNameWithinRuleGroup,omitempty"`
+}
+
+// A single settlement transaction record for AI bot monetization. Contains
+// details about the payment including timestamp, amount, status, and the parties
+// involved.
+type SettlementRecord struct {
+	WebACLARN *string `json:"webACLARN,omitempty"`
 }
 
 // Inspect one of the headers in the web request, identified by name, for example,
@@ -2050,9 +2158,9 @@ type SizeConstraintStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	Size                *int64                `json:"size,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
@@ -2344,10 +2452,10 @@ type WebACLSummary struct {
 // request that does not match any of the rules. The rules in a web ACL can
 // be a combination of the types Rule, RuleGroup, and managed rule group. You
 // can associate a web ACL with one or more Amazon Web Services resources to
-// protect. The resources can be an Amazon CloudFront distribution, an Amazon
-// API Gateway REST API, an Application Load Balancer, an AppSync GraphQL API,
-// an Amazon Cognito user pool, an App Runner service, or an Amazon Web Services
-// Verified Access instance.
+// protect. The resource types include Amazon CloudFront distribution, Amazon
+// API Gateway REST API, Application Load Balancer, AppSync GraphQL API, Amazon
+// Cognito user pool, App Runner service, Amplify application, Amazon Web Services
+// Verified Access instance, and Amazon Bedrock AgentCore Gateway.
 type WebACL_SDK struct {
 	ARN *string `json:"arn,omitempty"`
 	// Specifies custom configurations for the associations between the web ACL
@@ -2416,9 +2524,9 @@ type XSSMatchStatement struct {
 	//    individual fields talk about specifying the web request component to inspect,
 	//    but for field redaction, you are specifying the component type to redact
 	//    from the logs. If you have request sampling enabled, the redacted fields
-	//    configuration for logging has no impact on sampling. The only way to exclude
-	//    fields from request sampling is by disabling sampling in the web ACL visibility
-	//    configuration.
+	//    configuration for logging has no impact on sampling. You can only exclude
+	//    fields from request sampling by disabling sampling in the web ACL visibility
+	//    configuration or by configuring data protection for the web ACL.
 	FieldToMatch        *FieldToMatch         `json:"fieldToMatch,omitempty"`
 	TextTransformations []*TextTransformation `json:"textTransformations,omitempty"`
 }
